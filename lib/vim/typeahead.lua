@@ -471,8 +471,8 @@ local Typeahead = makeClass {
 		flag, data = events.isMouseScroll(ev)
 		if flag then
 			local mods = self:getLatestModifiers(true)
-			if data.dx ~= 0 then
-				local absAmount = data.dx
+			if data.dy ~= 0 then
+				local absAmount = data.dy
 				local translatedKey = "scrollwheeldown"
 				if absAmount < 0 then
 					absAmount = -absAmount
@@ -483,8 +483,8 @@ local Typeahead = makeClass {
 					self:insert(translatedKey, {update = {mouseX = data.x, mouseY = data.y}})
 				end
 			end
-			if data.dy ~= 0 then  -- currently not supported anywhere
-				local absAmount = data.dy
+			if data.dx ~= 0 then  -- currently not supported anywhere
+				local absAmount = data.dx
 				local translatedKey = "scrollwheelright"
 				if absAmount < 0 then
 					absAmount = -absAmount
