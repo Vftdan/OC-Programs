@@ -291,6 +291,46 @@ runMode = function(editor, cb)
 	end
 end
 
+local function scrollBy(editor, dx, dy, opts)
+	local win = editor:getCurrentWindow()
+	if win == nil then
+		return
+	end
+	local buf = editor:getCurrentBuffer()
+	if buf == nil then
+		return
+	end
+	local cursorToCtx = makeMotionContext(editor)
+	if cursorToCtx == nil then
+		return
+	end
+
+	local scrollX, scrollY = win:getScrollAmount()
+	scrollX = scrollX + dx
+	scrollY = scrollY + dy
+	win:setScrollAmount(scrollX, scrollY)
+	local contentWidth, contentHeight = win:getContentSize()
+	local cursorWindowX = cursorToCtx.x - scrollX
+	local cursorWindowY = cursorToCtx.y - scrollY
+
+	if cursorWindowX > contentWidth then
+		cursorToCtx.x = cursorToCtx.x - cursorWindowX + contentWidth
+		cursorToCtx.wantX = nil
+	elseif cursorWindowX < 1 then
+		cursorToCtx.x = cursorToCtx.x - cursorWindowX + 1
+		cursorToCtx.wantX = nil
+	end
+	if cursorWindowY > contentHeight then
+		cursorToCtx.y = cursorToCtx.y - cursorWindowY + contentHeight
+	elseif cursorWindowY < 1 then
+		cursorToCtx.y = cursorToCtx.y - cursorWindowY + 1
+	end
+
+	motionContextIntoBounds(editor, cursorToCtx, opts)
+	scrollToMotionContextEnd(editor, cursorToCtx)
+	updateCursorFromMotionContext(editor, cursorToCtx)
+end
+
 function scrollToMotionContextEnd(editor, toCtx)
 	local win = editor:getCurrentWindow()
 	if win == nil then
@@ -458,6 +498,7 @@ return {
 	pushModeInsert = pushModeInsert,
 	registerValueFromText = registerValueFromText,
 	runMode = runMode,
+	scrollBy = scrollBy,
 	scrollToMotionContextEnd = scrollToMotionContextEnd,
 	setLastSelection = setLastSelection,
 	setRepeatCount = setRepeatCount,

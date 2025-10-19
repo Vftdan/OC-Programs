@@ -4,6 +4,7 @@ local sysencoding = require("vim.platform.sysencoding")
 local itertools = require("vim.itertools")
 local keyseq = require("vim.keyseq")
 local typeahead = require("vim.typeahead")
+local math = require("math")
 
 local simpleOperators = {
 	y = function(editor, to)
@@ -160,6 +161,138 @@ local simpleNonprintMotions = {
 	["<end>"] = simpleMotions["$"],
 }
 
+local scrollActions = {  -- similar to motions, but don't exist in operator-pending mode
+	["<C-y>"] = function(editor, opts)
+		helpers.scrollBy(editor, 0, -helpers.getRepeatCount1(editor), opts)
+	end,
+	["<C-e>"] = function(editor, opts)
+		helpers.scrollBy(editor, 0,  helpers.getRepeatCount1(editor), opts)
+	end,
+	["<C-b>"] = function(editor, opts)
+		local win = editor:getCurrentWindow()
+		if win == nil then
+			return
+		end
+		local contentWidth, contentHeight = win:getContentSize()
+		local multiplier = contentHeight - 2
+		if multiplier < 1 then
+			multiplier = 1
+		end
+		local amount = multiplier * helpers.getRepeatCount1(editor) + 2
+		helpers.scrollBy(editor, 0, -amount, opts)
+	end,
+	["<C-f>"] = function(editor, opts)
+		local win = editor:getCurrentWindow()
+		if win == nil then
+			return
+		end
+		local contentWidth, contentHeight = win:getContentSize()
+		local multiplier = contentHeight - 2
+		if multiplier < 1 then
+			multiplier = 1
+		end
+		local amount = multiplier * helpers.getRepeatCount1(editor) + 2
+		helpers.scrollBy(editor, 0,  amount, opts)
+	end,
+	["<C-u>"] = function(editor, opts)
+		local scrollOption = helpers.getRepeatCount0(editor)
+		if scrollOption ~= 0 then
+			-- TODO better interface
+			editor._scrollOption = scrollOption
+		else
+			scrollOption = editor._scrollOption
+		end
+		helpers.scrollBy(editor, 0, -scrollOption, opts)
+	end,
+	["<C-d>"] = function(editor, opts)
+		local scrollOption = helpers.getRepeatCount0(editor)
+		if scrollOption ~= 0 then
+			-- TODO better interface
+			editor._scrollOption = scrollOption
+		else
+			scrollOption = editor._scrollOption
+		end
+		helpers.scrollBy(editor, 0,  scrollOption, opts)
+	end,
+	["zh"] = function(editor, opts)
+		helpers.scrollBy(editor, -helpers.getRepeatCount1(editor), 0, opts)
+	end,
+	["zl"] = function(editor, opts)
+		helpers.scrollBy(editor,  helpers.getRepeatCount1(editor), 0, opts)
+	end,
+	["zH"] = function(editor, opts)
+		local win = editor:getCurrentWindow()
+		if win == nil then
+			return
+		end
+		local contentWidth, contentHeight = win:getContentSize()
+		local multiplier = math.floor(contentWidth / 2) - 1
+		if multiplier < 1 then
+			multiplier = 1
+		end
+		local amount = multiplier * helpers.getRepeatCount1(editor) + 2
+		helpers.scrollBy(editor, -amount, 0, opts)
+	end,
+	["zL"] = function(editor, opts)
+		local win = editor:getCurrentWindow()
+		if win == nil then
+			return
+		end
+		local contentWidth, contentHeight = win:getContentSize()
+		local multiplier = math.floor(contentWidth / 2) - 1
+		if multiplier < 1 then
+			multiplier = 1
+		end
+		local amount = multiplier * helpers.getRepeatCount1(editor) + 2
+		helpers.scrollBy(editor,  amount, 0, opts)
+	end,
+}
+
+local scrollNonprintActions = {
+	["<scrollwheelup>"] = function(editor, opts)
+		helpers.scrollBy(editor, 0, -3 * helpers.getRepeatCount1(editor), opts)
+	end,
+	["<scrollwheeldown>"] = function(editor, opts)
+		helpers.scrollBy(editor, 0,  3 * helpers.getRepeatCount1(editor), opts)
+	end,
+	["<scrollwheelleft>"] = function(editor, opts)
+		helpers.scrollBy(editor, -3 * helpers.getRepeatCount1(editor), 0, opts)
+	end,
+	["<scrollwheelright>"] = function(editor, opts)
+		helpers.scrollBy(editor,  3 * helpers.getRepeatCount1(editor), 0, opts)
+	end,
+	["<pageup>"] = scrollActions["<C-b>"],
+	["<pagedown>"] = scrollActions["<C-f>"],
+	["<S-scrollwheelup>"] = scrollActions["<C-b>"],
+	["<S-scrollwheeldown>"] = scrollActions["<C-f>"],
+	["<S-scrollwheelleft>"] = function(editor, opts)
+		local win = editor:getCurrentWindow()
+		if win == nil then
+			return
+		end
+		local contentWidth, contentHeight = win:getContentSize()
+		local multiplier = contentWidth - 2
+		if multiplier < 1 then
+			multiplier = 1
+		end
+		local amount = multiplier * helpers.getRepeatCount1(editor) + 2
+		helpers.scrollBy(editor, -amount, 0, opts)
+	end,
+	["<S-scrollwheelright>"] = function(editor, opts)
+		local win = editor:getCurrentWindow()
+		if win == nil then
+			return
+		end
+		local contentWidth, contentHeight = win:getContentSize()
+		local multiplier = contentWidth - 2
+		if multiplier < 1 then
+			multiplier = 1
+		end
+		local amount = multiplier * helpers.getRepeatCount1(editor) + 2
+		helpers.scrollBy(editor,  amount, 0, opts)
+	end,
+}
+
 local normalActions = {
 	ZQ = function(editor)
 		editor:terminate()
@@ -282,6 +415,18 @@ local function makeVisualOperator(op)
 	end
 end
 
+local function makeVisualScrollAction(op)
+	return function(editor, toCtx)
+		helpers.updateCursorFromMotionContext(editor, toCtx)
+		op(editor)
+		local cursorToCtx = helpers.makeMotionContext(editor)
+		toCtx.x = cursorToCtx.x
+		toCtx.y = cursorToCtx.y
+		toCtx.wantX = cursorToCtx.wantX
+		return false, toCtx
+	end
+end
+
 local function makeOperatorPendingMotion(toDef)
 	return function(editor, toCtx)
 		toCtx = helpers.applyMotionToContext(editor, toCtx, toDef)
@@ -294,6 +439,13 @@ local function makeInsertMotion(toDef)
 		if not helpers.performCursorMotion(editor, toDef, {onePastEnd = true}) then
 			return nil
 		end
+		return false
+	end
+end
+
+local function makeInsertScrollAction(op)
+	return function(editor)
+		op(editor, {onePastEnd = true})
 		return false
 	end
 end
@@ -340,6 +492,17 @@ local function initialize(modeTries)
 
 	for seq, act in pairs(insertActions) do
 		putAtKeySeq(insert, seq, act)
+	end
+
+	for seq, act in pairs(scrollActions) do
+		putAtKeySeq(normal, seq, act)
+		putAtKeySeq(visual, seq, makeVisualScrollAction(act))
+	end
+
+	for seq, act in pairs(scrollNonprintActions) do
+		putAtKeySeq(normal, seq, act)
+		putAtKeySeq(visual, seq, makeVisualScrollAction(act))
+		putAtKeySeq(insert, seq, makeInsertScrollAction(act))
 	end
 end
 
