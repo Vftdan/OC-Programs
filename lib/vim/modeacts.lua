@@ -585,6 +585,14 @@ local normalActions = {
 		end
 		buf:write()
 	end,
+	I = function(editor)
+		helpers.performCursorMotion(editor, helpers.textObjects.solNonSpace, {onePastEnd = true})
+		helpers.pushModeInsert(editor)
+	end,
+	A = function(editor)
+		helpers.performCursorMotion(editor, helpers.textObjects.eol, {onePastEnd = true})
+		helpers.pushModeInsert(editor)
+	end,
 }
 
 normalActions[":q<cr>"] = normalActions.ZQ

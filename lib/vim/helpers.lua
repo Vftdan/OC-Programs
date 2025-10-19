@@ -522,10 +522,7 @@ textObjects = {
 			toCtx.y = 1
 		end
 		local line = buf:getLine(toCtx.y)
-		toCtx.x = strptn.firstNonSpace(line) or sysencoding.len(line)
-		if toCtx.x < 1 then
-			toCtx.x = 1
-		end
+		toCtx.x = strptn.firstNonSpace(line) or sysencoding.len(line) + 1
 		return toCtx
 	end},
 	line = {{linewise = true}, function(editor, toCtx)
