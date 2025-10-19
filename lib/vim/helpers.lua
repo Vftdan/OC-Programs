@@ -2,6 +2,7 @@ local sysencoding = require("vim.platform.sysencoding")
 local itertools = require("vim.itertools")
 local textrender = require("vim.platform.textrender")
 local strptn = require("vim.strptn")
+local typeahead = require("vim.typeahead")
 local modes
 
 local function appendTextAtBuffer(editor, buf, tbl, x, y)
@@ -291,7 +292,7 @@ end
 local function pullInputCharacter(editor)
 	editor.typeahead:applyModeMappings()
 	editor.typeahead:applyLangMappings()
-	local ch = editor.typeahead:pull()
+	local ch = typeahead.getSelfInsert(editor.typeahead:pull())
 	if sysencoding.len(ch) ~= 1 then
 		return nil
 	end
