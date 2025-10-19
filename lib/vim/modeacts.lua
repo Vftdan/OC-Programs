@@ -630,6 +630,36 @@ local normalActions = {
 		helpers.expandPaste(editor)
 		return false
 	end,
+	o = function(editor)
+		local buf = editor:getCurrentBuffer()
+		if buf == nil then
+			return
+		end
+		local cursorToCtx = helpers.makeMotionContext(editor)
+		local line = buf:getLine(cursorToCtx.y)
+		local indentLen = (strptn.firstNonSpace(line) or sysencoding.len(line) + 1) - 1
+		local indent = sysencoding.sub(line, 1, indentLen)
+		helpers.performCursorMotion(editor, helpers.textObjects.eol, {onePastEnd = true})
+		helpers.insertTextAtCursor(editor, {"", indent})
+		helpers.pushModeInsert(editor)
+	end,
+	O = function(editor)
+		local buf = editor:getCurrentBuffer()
+		if buf == nil then
+			return
+		end
+		local cursorToCtx = helpers.makeMotionContext(editor)
+		local line = buf:getLine(cursorToCtx.y)
+		local indentLen = (strptn.firstNonSpace(line) or sysencoding.len(line) + 1) - 1
+		local indent = sysencoding.sub(line, 1, indentLen)
+		helpers.performCursorMotion(editor, helpers.textObjects.sol)
+		helpers.insertTextAtCursor(editor, {indent, ""})
+		cursorToCtx = helpers.makeMotionContext(editor)
+		cursorToCtx.y = cursorToCtx.y - 1
+		cursorToCtx.x = indentLen + 1
+		helpers.updateCursorFromMotionContext(editor, cursorToCtx)
+		helpers.pushModeInsert(editor)
+	end,
 }
 
 normalActions[":q<cr>"] = normalActions.ZQ
