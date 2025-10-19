@@ -48,6 +48,15 @@ local function evaluateTextObject(editor, toDef)
 	return to
 end
 
+local function expandPaste(editor, opts)
+	opts = opts or {}
+	local str = editor.typeahead.inputProperties.pasteData or ""
+	for i = 1, sysencoding.len(str) do
+		local ch = sysencoding.sub(str, i, i)
+		editor.typeahead:insert(ch, {index = i, noModeMap = opts.noModeMap, noLangMap = opts.noLangMap, update = opts.update})
+	end
+end
+
 function finalizeMotion(editor, toCtx)
 	return toCtx
 end
@@ -556,6 +565,7 @@ return {
 	applyOperator = applyOperator,
 	emptyRegisterValue = emptyRegisterValue,
 	evaluateTextObject = evaluateTextObject,
+	expandPaste = expandPaste,
 	finalizeMotion = finalizeMotion,
 	findCharacterInLine = findCharacterInLine,
 	findWordInLine = findWordInLine,

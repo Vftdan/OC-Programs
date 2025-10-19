@@ -593,6 +593,10 @@ local normalActions = {
 		helpers.performCursorMotion(editor, helpers.textObjects.eol, {onePastEnd = true})
 		helpers.pushModeInsert(editor)
 	end,
+	["@+"] = function(editor)
+		helpers.expandPaste(editor)
+		return false
+	end,
 }
 
 normalActions[":q<cr>"] = normalActions.ZQ
@@ -633,7 +637,21 @@ local insertActions = {
 		helpers.updateCursorFromMotionContext(editor, toCtx)
 		return false
 	end,
+	["<C-r>+"] = function(editor)
+		helpers.expandPaste(editor, {noModeMap = true, noLangMap = true})
+		return false
+	end,
 }
+
+-- Host client paste aliases (<insert> in OC and <C-v> in CC are used to trigger paste event)
+normalActions["<S-insert>"] = normalActions["@+"]  -- Interpret clipboard data as Vim controls!
+normalActions["<C-S-v>"] = normalActions["@+"]
+normalActions["@<insert>"] = normalActions["@+"]
+normalActions["@<C-v>"] = normalActions["@+"]
+insertActions["<S-insert>"] = insertActions["<C-r>+"]  -- Actually paste
+insertActions["<C-S-v>"] = insertActions["<C-r>+"]
+insertActions["<C-r><insert>"] = insertActions["<C-r>+"]
+insertActions["<C-r><C-v>"] = insertActions["<C-r>+"]
 
 local function getOrNewTrie(tbl, name)
 	local val = tbl[name]

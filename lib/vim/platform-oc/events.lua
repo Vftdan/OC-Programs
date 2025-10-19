@@ -128,7 +128,7 @@ local function isPaste(native)
 	if native[1] == "clipboard" then
 		return true, {
 			keyboardId = native[2],
-			text = native[4],
+			text = native[3],
 			consumedEvent = nil,
 		}
 	end

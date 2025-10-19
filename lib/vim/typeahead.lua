@@ -389,7 +389,8 @@ local Typeahead = makeClass {
 		return result
 	end,
 	schedulePropertyUpdate = function(self, update)
-		self._scheduledPropertyUpdate = update
+		self._scheduledPropertyUpdate = self._scheduledPropertyUpdate or {}
+		itertools.update(self._scheduledPropertyUpdate, update)
 	end,
 	_handleNativeEvent = function(self, ev)
 		if events.isInterrupt(ev) then
