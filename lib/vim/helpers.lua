@@ -497,7 +497,35 @@ textObjects = {
 		end
 		local line = buf:getLine(toCtx.y)
 		local lineLength = sysencoding.len(line)
-		toCtx.x = lineLength
+		toCtx.x = lineLength + 1
+		return toCtx
+	end},
+	sol = {{exclusive = true}, function(editor, toCtx)
+		local buf = editor:getCurrentBuffer()
+		if buf == nil then
+			return
+		end
+		toCtx.y = toCtx.y - getRepeatCount1(editor) + 1  -- It is not possible to provide count to "0"
+		if toCtx.y < 1 then
+			toCtx.y = 1
+		end
+		toCtx.x = 1
+		return toCtx
+	end},
+	solNonSpace = {{exclusive = true}, function(editor, toCtx)
+		local buf = editor:getCurrentBuffer()
+		if buf == nil then
+			return
+		end
+		toCtx.y = toCtx.y - getRepeatCount1(editor) + 1  -- Real Vim doesn't accept count for "^"
+		if toCtx.y < 1 then
+			toCtx.y = 1
+		end
+		local line = buf:getLine(toCtx.y)
+		toCtx.x = strptn.firstNonSpace(line) or sysencoding.len(line)
+		if toCtx.x < 1 then
+			toCtx.x = 1
+		end
 		return toCtx
 	end},
 	line = {{linewise = true}, function(editor, toCtx)

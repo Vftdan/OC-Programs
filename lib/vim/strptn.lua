@@ -188,10 +188,16 @@ local function matchesGetAdjacent(matches, target, key, opts)
 	return matches[guess], 0
 end
 
+local function firstNonSpace(haystack)
+	local i = haystack:find(NONSPACE_PTN)
+	return i
+end
+
 return {
 	escapePtn = escapePtn,
 	findAll = findAll,
 	findWordBoundaries = findWordBoundaries,
 	findNonSpaceBoundaries = findNonSpaceBoundaries,
 	matchesGetAdjacent = matchesGetAdjacent,
+	firstNonSpace = firstNonSpace,
 }

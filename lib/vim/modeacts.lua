@@ -421,6 +421,9 @@ simpleMotions = {
 		toCtx.x, toCtx.y = origX, origY
 		return toCtx
 	end},
+	["0"] = helpers.textObjects.sol,
+	["^"] = helpers.textObjects.solNonSpace,
+	["$"] = helpers.textObjects.eol,
 }
 
 local simpleNonprintMotions = {
