@@ -1,5 +1,6 @@
 local sysencoding = require("vim.platform.sysencoding")
 local itertools = require("vim.itertools")
+local textrender = require("vim.platform.textrender")
 local modes
 
 local function appendTextAtBuffer(editor, buf, tbl, x, y)
@@ -140,7 +141,7 @@ function getTextObjectEnds(editor, to)
 	return begX, begY, edX, edY
 end
 
-local textObjects, registerValueFromText, updateCursorFromMotionContext, setTextObjectAsRegister
+local textObjects, registerValueFromText, updateCursorFromMotionContext, setTextObjectAsRegister, scrollToMotionContextEnd
 
 local function insertTextAtCursor(editor, txt)
 	local cursorToCtx = makeMotionContext(editor)
@@ -157,6 +158,7 @@ local function insertTextAtCursor(editor, txt)
 		cursorToCtx.y = cursorToCtx.y + #txt - 1
 		cursorToCtx.x = 1 + sysencoding.len(txt[#txt])
 	end
+	scrollToMotionContextEnd(editor, cursorToCtx)
 	updateCursorFromMotionContext(editor, cursorToCtx)
 end
 
@@ -176,16 +178,45 @@ function makeMotionContext(editor)
 	return toCtx
 end
 
-local function performCursorMotion(editor, toDef)
+local function motionContextIntoBounds(editor, toCtx, opts)
+	opts = opts or {}
+	local buf = editor:getCurrentBuffer()
+	if buf == nil then
+		return
+	end
+	local lineCount = buf:getLineCount()
+	if toCtx.y > lineCount then
+		toCtx.y = lineCount
+	end
+	if toCtx.y < 1 then
+		toCtx.y = 1
+	end
+	local line = buf:getLine(toCtx.y)
+	local lineLength = sysencoding.len(line)
+	if opts.onePastEnd then
+		lineLength = lineLength + 1
+	end
+	if toCtx.x > lineLength then
+		toCtx.x = lineLength
+	end
+	if toCtx.x < 1 then
+		toCtx.x = 1
+	end
+end
+
+local function performCursorMotion(editor, toDef, opts)
 	local toCtx = makeMotionContext(editor)
 	if toCtx == nil then
-		return
+		return false
 	end
 	toCtx = applyMotionToContext(editor, toCtx, toDef)
 	if toCtx == nil then
-		return
+		return false
 	end
+	motionContextIntoBounds(editor, toCtx, opts)
+	scrollToMotionContextEnd(editor, toCtx)
 	updateCursorFromMotionContext(editor, toCtx)
+	return true
 end
 
 local function pullCountString(editor)
@@ -232,6 +263,7 @@ local function pushModeInsert(editor)
 		modes = require("vim.modes")
 	end
 	runMode(editor, modes.insertMode)
+	performCursorMotion(editor, textObjects.characterBackward)
 end
 
 function registerValueFromText(editor, txt, protoRegValue)
@@ -257,6 +289,46 @@ runMode = function(editor, cb)
 	else
 		error(table.unpack(result, 2, result.n))
 	end
+end
+
+function scrollToMotionContextEnd(editor, toCtx)
+	local win = editor:getCurrentWindow()
+	if win == nil then
+		return
+	end
+	local buf = editor:getCurrentBuffer()
+	if buf == nil then
+		return
+	end
+
+	-- TODO better interface
+	local scrollX = win._scrollX
+	local scrollY = win._scrollY
+	local screenWidth, screenHeight = textrender.getTermSize()
+	local contentHeight = screenHeight - 2
+	local contentWidth = screenWidth - 1 - sysencoding.len(tostring(buf:getLineCount()))
+
+	local cursorWindowX = toCtx.x - scrollX
+	local cursorWindowY = toCtx.y - scrollY
+	if cursorWindowX > contentWidth then
+		scrollX = scrollX + cursorWindowX - contentWidth
+	elseif cursorWindowX < 1 then
+		scrollX = scrollX + cursorWindowX - 1
+	end
+	if scrollX < 0 then
+		scrollX = 0
+	end
+	if cursorWindowY > contentHeight then
+		scrollY = scrollY + cursorWindowY - contentHeight
+	elseif cursorWindowY < 1 then
+		scrollY = scrollY + cursorWindowY - 1
+	end
+	if scrollY < 0 then
+		scrollY = 0
+	end
+
+	win._scrollX = scrollX
+	win._scrollY = scrollY
 end
 
 local function setLastSelection(editor, to)
@@ -383,6 +455,7 @@ return {
 	insertTextAtCursor = insertTextAtCursor,
 	isEmptyTextObject = isEmptyTextObject,
 	makeMotionContext = makeMotionContext,
+	motionContextIntoBounds = motionContextIntoBounds,
 	performCursorMotion = performCursorMotion,
 	pullCountString = pullCountString,
 	pullInputCharacter = pullInputCharacter,
@@ -390,6 +463,7 @@ return {
 	pushModeInsert = pushModeInsert,
 	registerValueFromText = registerValueFromText,
 	runMode = runMode,
+	scrollToMotionContextEnd = scrollToMotionContextEnd,
 	setLastSelection = setLastSelection,
 	setRepeatCount = setRepeatCount,
 	setSelectedRegister = setSelectedRegister,

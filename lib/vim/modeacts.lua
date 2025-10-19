@@ -168,7 +168,7 @@ local normalActions = {
 		helpers.pushModeInsert(editor)
 	end,
 	a = function(editor)
-		helpers.performCursorMotion(editor, helpers.textObjects.characterForward)
+		helpers.performCursorMotion(editor, helpers.textObjects.characterForward, {onePastEnd = true})
 		helpers.pushModeInsert(editor)
 	end,
 	[":w<cr>"] = function(editor)  -- TODO command-line mode
@@ -291,15 +291,9 @@ end
 
 local function makeInsertMotion(toDef)
 	return function(editor)
-		local toCtx = helpers.makeMotionContext(editor)
-		if toCtx == nil then
+		if not helpers.performCursorMotion(editor, toDef, {onePastEnd = true}) then
 			return nil
 		end
-		toCtx = helpers.applyMotionToContext(editor, toCtx, toDef)
-		if toCtx == nil then
-			return nil
-		end
-		helpers.updateCursorFromMotionContext(editor, toCtx)
 		return false
 	end
 end

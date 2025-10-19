@@ -30,7 +30,7 @@ local Window = makeClass {
 		local cursorX = self._editor._cursorX or 1
 		local cursorY = self._editor._cursorY or 1
 		local cursorViewportX = cursorX - self._scrollX
-		local cursorViewportY = cursorX - self._scrollY
+		local cursorViewportY = cursorY - self._scrollY
 		for i = 1, height do
 			textrender.setCursorPos(1, i)
 			local lineNr = i + self._scrollY
@@ -42,13 +42,13 @@ local Window = makeClass {
 				local nrChunk = {nrString .. " "}
 				itertools.update(nrChunk, lineNrStyle)
 				local viewportLine = sysencoding.sub(self.currentBuffer:getLine(lineNr), 1 + self._scrollX, contentWidth + self._scrollX)
-				if cursorY == i and cursorX > 0 then
-					local linePre = sysencoding.sub(viewportLine, 1, cursorX - 1)
-					local lineCur = sysencoding.sub(viewportLine, cursorX, cursorX)
+				if cursorViewportY == i and cursorViewportX > 0 then
+					local linePre = sysencoding.sub(viewportLine, 1, cursorViewportX - 1)
+					local lineCur = sysencoding.sub(viewportLine, cursorViewportX, cursorViewportX)
 					if lineCur == "" then
 						lineCur = " "
 					end
-					local linePost = sysencoding.sub(viewportLine, cursorX + 1)
+					local linePost = sysencoding.sub(viewportLine, cursorViewportX + 1)
 					local remainingLength = contentWidth - sysencoding.len(linePre) - sysencoding.len(linePost) - 1
 					local rightPad = ""
 					if remainingLength > 0 then
