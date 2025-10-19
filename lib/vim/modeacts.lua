@@ -5,6 +5,7 @@ local itertools = require("vim.itertools")
 local keyseq = require("vim.keyseq")
 local typeahead = require("vim.typeahead")
 local math = require("math")
+local strptn = require("vim.strptn")
 
 local simpleOperators = {
 	y = function(editor, to)
@@ -424,6 +425,38 @@ simpleMotions = {
 	["0"] = helpers.textObjects.sol,
 	["^"] = helpers.textObjects.solNonSpace,
 	["$"] = helpers.textObjects.eol,
+	gg = {{}, function(editor, toCtx)
+		local buf = editor:getCurrentBuffer()
+		if buf == nil then
+			return
+		end
+		if toCtx.linewise == nil then  -- preserve false
+			toCtx.linewise = true
+		end
+		toCtx.y = helpers.getRepeatCount1(editor)
+		helpers.motionContextIntoBounds(editor, toCtx)
+		local line = buf:getLine(toCtx.y)
+		toCtx.x = strptn.firstNonSpace(line) or sysencoding.len(line) + 1
+		return toCtx
+	end},
+	G = {{}, function(editor, toCtx)
+		local buf = editor:getCurrentBuffer()
+		if buf == nil then
+			return
+		end
+		if toCtx.linewise == nil then  -- preserve false
+			toCtx.linewise = true
+		end
+		local n = helpers.getRepeatCount0(editor)
+		if n < 1 then
+			n = buf:getLineCount()
+		end
+		toCtx.y = n
+		helpers.motionContextIntoBounds(editor, toCtx)
+		local line = buf:getLine(toCtx.y)
+		toCtx.x = strptn.firstNonSpace(line) or sysencoding.len(line) + 1
+		return toCtx
+	end},
 }
 
 local simpleNonprintMotions = {
