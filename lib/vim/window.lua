@@ -101,6 +101,25 @@ local Window = makeClass {
 			filenameChunk,
 		}
 	end,
+	getContentSize = function(self)
+		local width, height = textrender.getTermSize()
+		height = height - 1  -- MsgArea is not managed by the window
+		local maxNrDigits = 0
+		if self.currentBuffer then
+			local n = self.currentBuffer:getLineCount()
+			maxNrDigits = sysencoding.len(tostring(n))
+		end
+		local contentWidth = width - maxNrDigits - 1
+		local contentHeight = height - 1  -- Reserve status line space
+		return contentWidth, contentHeight
+	end,
+	getScrollAmount = function(self)
+		return self._scrollX, self._scrollY
+	end,
+	setScrollAmount = function(self, x, y)
+		self._scrollX = x
+		self._scrollY = y
+	end,
 }
 
 local function withBuffer(buf)

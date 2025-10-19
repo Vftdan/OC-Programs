@@ -301,12 +301,8 @@ function scrollToMotionContextEnd(editor, toCtx)
 		return
 	end
 
-	-- TODO better interface
-	local scrollX = win._scrollX
-	local scrollY = win._scrollY
-	local screenWidth, screenHeight = textrender.getTermSize()
-	local contentHeight = screenHeight - 2
-	local contentWidth = screenWidth - 1 - sysencoding.len(tostring(buf:getLineCount()))
+	local scrollX, scrollY = win:getScrollAmount()
+	local contentWidth, contentHeight = win:getContentSize()
 
 	local cursorWindowX = toCtx.x - scrollX
 	local cursorWindowY = toCtx.y - scrollY
@@ -327,8 +323,7 @@ function scrollToMotionContextEnd(editor, toCtx)
 		scrollY = 0
 	end
 
-	win._scrollX = scrollX
-	win._scrollY = scrollY
+	win:setScrollAmount(scrollX, scrollY)
 end
 
 local function setLastSelection(editor, to)
