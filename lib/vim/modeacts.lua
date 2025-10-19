@@ -98,7 +98,8 @@ local impendingNormalOperators = {  -- don't exist in visual mode
 	dd = {helpers.textObjects.line, simpleOperators.d},
 }
 
-local simpleMotions = {
+local simpleMotions
+simpleMotions = {
 	h = helpers.textObjects.characterBackward,
 	j = {{}, function(editor, toCtx)
 		local buf = editor:getCurrentBuffer()
@@ -150,6 +151,96 @@ local simpleMotions = {
 		return toCtx
 	end},
 	l = helpers.textObjects.characterForward,
+	f = {{}, function(editor, toCtx)
+		local ch = helpers.pullInputCharacter(editor)
+		if not ch then
+			return toCtx
+		end
+		-- TODO better interface
+		editor._lastCharSearch = {"f", ch}
+		local newX = helpers.findCharacterInLine(editor, ch, toCtx, {backward = false})
+		if newX then
+			toCtx.x = newX
+			toCtx.wantX = nil
+		end
+		return toCtx
+	end},
+	t = {{}, function(editor, toCtx)
+		local ch = helpers.pullInputCharacter(editor)
+		if not ch then
+			return toCtx
+		end
+		-- TODO better interface
+		editor._lastCharSearch = {"t", ch}
+		toCtx.x = toCtx.x + 1
+		local newX = helpers.findCharacterInLine(editor, ch, toCtx, {backward = false})
+		if newX then
+			toCtx.x = newX
+			toCtx.wantX = nil
+		end
+		toCtx.x = toCtx.x - 1
+		return toCtx
+	end},
+	F = {{exclusive = true}, function(editor, toCtx)
+		local ch = helpers.pullInputCharacter(editor)
+		if not ch then
+			return toCtx
+		end
+		-- TODO better interface
+		editor._lastCharSearch = {"F", ch}
+		local newX = helpers.findCharacterInLine(editor, ch, toCtx, {backward = true})
+		if newX then
+			toCtx.x = newX
+			toCtx.wantX = nil
+		end
+		return toCtx
+	end},
+	T = {{exclusive = true}, function(editor, toCtx)
+		local ch = helpers.pullInputCharacter(editor)
+		if not ch then
+			return toCtx
+		end
+		-- TODO better interface
+		editor._lastCharSearch = {"T", ch}
+		toCtx.x = toCtx.x - 1
+		local newX = helpers.findCharacterInLine(editor, ch, toCtx, {backward = true})
+		if newX then
+			toCtx.x = newX
+			toCtx.wantX = nil
+		end
+		toCtx.x = toCtx.x + 1
+		return toCtx
+	end},
+	[";"] = {{}, function(editor, toCtx)
+		-- TODO better interface
+		local last = editor._lastCharSearch
+		if last == nil then
+			return toCtx
+		end
+		editor._lastCharSearch = nil
+		editor.typeahead:insert(last[2], {index = 1, noModeMap = true, noLangMap = true})
+		local kind = last[1]
+		local mot = simpleMotions[kind]
+		itertools.update(toCtx, mot[1])
+		toCtx = mot[2](editor, toCtx)
+		editor._lastCharSearch = last
+		return toCtx
+	end},
+	[","] = {{}, function(editor, toCtx)
+		-- TODO better interface
+		local last = editor._lastCharSearch
+		if last == nil then
+			return toCtx
+		end
+		editor._lastCharSearch = nil
+		editor.typeahead:insert(last[2], {index = 1, noModeMap = true, noLangMap = true})
+		local kind = ({f = "F", t = "T", F = "f", T = "t"})[last[1]]
+		local mot = simpleMotions[kind]
+		itertools.update(toCtx, mot[1])
+		toCtx = mot[2](editor, toCtx)
+		editor._lastCharSearch = last
+		return toCtx
+	end},
 }
 
 local simpleNonprintMotions = {

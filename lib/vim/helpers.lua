@@ -1,6 +1,7 @@
 local sysencoding = require("vim.platform.sysencoding")
 local itertools = require("vim.itertools")
 local textrender = require("vim.platform.textrender")
+local strptn = require("vim.strptn")
 local modes
 
 local function appendTextAtBuffer(editor, buf, tbl, x, y)
@@ -48,6 +49,56 @@ end
 
 function finalizeMotion(editor, toCtx)
 	return toCtx
+end
+
+local function findCharacterInLine(editor, ch, toCtx, opts)
+	opts = opts or {}
+	toCtx = toCtx or makeMotionContext(editor)
+	local buf = editor:getCurrentBuffer()
+	if not buf then
+		return nil
+	end
+	local line = buf:getLine(toCtx.y)
+	if not line then
+		return nil
+	end
+	-- TODO cache
+	local matches = strptn.findAll(line, ch)
+	local lower = 1
+	local higher = #matches
+	if higher < 1 then
+		return nil
+	end
+	local guess = math.floor((lower + higher) / 2)
+	local target = toCtx.x
+	local backward = opts.backward or false
+	while lower < higher do
+		local m = matches[guess]
+		if m[1] == target then
+			break
+		end
+		if m[1] < target then
+			lower = guess
+			guess = math.ceil((guess + higher) / 2)
+		else
+			higher = guess
+			guess = math.floor((guess + lower) / 2)
+		end
+	end
+	local m = matches[guess]
+	if backward then
+		if m[1] >= target then
+			m = matches[guess - 1]
+		end
+	else
+		if m[1] <= target then
+			m = matches[guess + 1]
+		end
+	end
+	if not m then
+		return nil
+	end
+	return m[1]
 end
 
 local function getRegisterValueText(editor, regValue)
@@ -481,6 +532,7 @@ return {
 	emptyRegisterValue = emptyRegisterValue,
 	evaluateTextObject = evaluateTextObject,
 	finalizeMotion = finalizeMotion,
+	findCharacterInLine = findCharacterInLine,
 	getRegisterValueText = getRegisterValueText,
 	getRepeatCount0 = getRepeatCount0,
 	getRepeatCount1 = getRepeatCount1,
