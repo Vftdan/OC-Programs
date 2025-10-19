@@ -192,6 +192,8 @@ local function insertMode(editor)
 		end
 		editor:render()
 	end
+	editor:setModeMessage("")
+	editor:render()
 end
 
 return {

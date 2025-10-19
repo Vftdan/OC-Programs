@@ -86,7 +86,10 @@ local Editor = makeClass {
 		self._windows[1]:render()
 		local mode = self._modeMessage
 		local ta = self.typeahead:stringifyAll()
-		if mode or #ta > 0 then
+		local renderMode = mode ~= nil
+		local renderTypeahead = ta ~= self._oldTypeaheadString
+		if renderMode or renderTypeahead then
+			self._oldTypeaheadString = ta
 			if not mode then
 				mode = ""
 			end
@@ -101,6 +104,8 @@ local Editor = makeClass {
 			if taStart < 1 then
 				taStart = 1
 			end
+			local oldTypeaheadStart = self._oldTypeaheadStart or width - 11
+			self._oldTypeaheadStart = taStart
 			ta = sysencoding.sub(ta, 1, width - taStart + 1)
 			mode = sysencoding.sub(mode, 1, taStart - 1)
 			local sepLength = taStart - 1 - sysencoding.len(mode)
@@ -113,15 +118,27 @@ local Editor = makeClass {
 			if rightPadLength > 0 then
 				rightPad = itertools.repeatString(" ", rightPadLength)
 			end
-			local modeChunk = {mode}
+			local modeChunk = {mode .. sep}
 			itertools.update(modeChunk, modeMsgStyle)
-			local taChunk = {sep .. ta .. rightPad}
+			local taChunk = {ta .. rightPad}
 			itertools.update(taChunk, typeaheadStyle)
-			textrender.setCursorPos(1, height)
-			textrender.blitAll{
-				modeChunk,
-				taChunk,
-			}
+			local blitData = {}
+			if renderMode then
+				textrender.setCursorPos(1, height)
+				blitData[#blitData + 1] = modeChunk
+			else
+				if oldTypeaheadStart < taStart then
+					textrender.setCursorPos(oldTypeaheadStart, height)
+					local leftPad = itertools.repeatString(" ", taStart - oldTypeaheadStart)
+					taChunk[1] = leftPad .. taChunk[1]
+				else
+					textrender.setCursorPos(taStart, height)
+				end
+			end
+			if renderTypeahead then
+				blitData[#blitData + 1] = taChunk
+			end
+			textrender.blitAll(blitData)
 		end
 	end,
 }
