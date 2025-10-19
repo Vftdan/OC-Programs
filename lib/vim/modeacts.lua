@@ -158,7 +158,7 @@ simpleMotions = {
 		end
 		-- TODO better interface
 		editor._lastCharSearch = {"f", ch}
-		local newX = helpers.findCharacterInLine(editor, ch, toCtx, {backward = false})
+		local newX = helpers.findCharacterInLine(editor, ch, toCtx, {backward = false, count = helpers.getRepeatCount1(editor)})
 		if newX then
 			toCtx.x = newX
 			toCtx.wantX = nil
@@ -173,7 +173,7 @@ simpleMotions = {
 		-- TODO better interface
 		editor._lastCharSearch = {"t", ch}
 		toCtx.x = toCtx.x + 1
-		local newX = helpers.findCharacterInLine(editor, ch, toCtx, {backward = false})
+		local newX = helpers.findCharacterInLine(editor, ch, toCtx, {backward = false, count = helpers.getRepeatCount1(editor)})
 		if newX then
 			toCtx.x = newX
 			toCtx.wantX = nil
@@ -188,7 +188,7 @@ simpleMotions = {
 		end
 		-- TODO better interface
 		editor._lastCharSearch = {"F", ch}
-		local newX = helpers.findCharacterInLine(editor, ch, toCtx, {backward = true})
+		local newX = helpers.findCharacterInLine(editor, ch, toCtx, {backward = true, count = helpers.getRepeatCount1(editor)})
 		if newX then
 			toCtx.x = newX
 			toCtx.wantX = nil
@@ -203,7 +203,7 @@ simpleMotions = {
 		-- TODO better interface
 		editor._lastCharSearch = {"T", ch}
 		toCtx.x = toCtx.x - 1
-		local newX = helpers.findCharacterInLine(editor, ch, toCtx, {backward = true})
+		local newX = helpers.findCharacterInLine(editor, ch, toCtx, {backward = true, count = helpers.getRepeatCount1(editor)})
 		if newX then
 			toCtx.x = newX
 			toCtx.wantX = nil
@@ -239,6 +239,186 @@ simpleMotions = {
 		itertools.update(toCtx, mot[1])
 		toCtx = mot[2](editor, toCtx)
 		editor._lastCharSearch = last
+		return toCtx
+	end},
+	w = {{exclusive = true}, function(editor, toCtx)
+		local origX, origY = toCtx.x, toCtx.y
+		local buf = editor:getCurrentBuffer()
+		if buf == nil then
+			return
+		end
+		local lineCount = buf:getLineCount()
+		local repeatCount = helpers.getRepeatCount1(editor)
+		local newX
+		while editor:isRunning() and toCtx.y <= lineCount do
+			newX, repeatCount = helpers.findWordInLine(editor, toCtx, {backward = false, wordEnd = false, WORDs = false, count = repeatCount})
+			if newX then
+				toCtx.x = newX
+				toCtx.wantX = nil
+				return toCtx
+			end
+			toCtx.y = toCtx.y + 1
+			toCtx.x = 0
+			editor.typeahead:yieldCPU()
+		end
+		toCtx.x, toCtx.y = origX, origY
+		return toCtx
+	end},
+	W = {{exclusive = true}, function(editor, toCtx)
+		local origX, origY = toCtx.x, toCtx.y
+		local buf = editor:getCurrentBuffer()
+		if buf == nil then
+			return
+		end
+		local lineCount = buf:getLineCount()
+		local repeatCount = helpers.getRepeatCount1(editor)
+		local newX
+		while toCtx.y <= lineCount do
+			newX, repeatCount = helpers.findWordInLine(editor, toCtx, {backward = false, wordEnd = false, WORDs = true, count = repeatCount})
+			if newX then
+				toCtx.x = newX
+				toCtx.wantX = nil
+				return toCtx
+			end
+			toCtx.y = toCtx.y + 1
+			toCtx.x = 0
+			editor.typeahead:yieldCPU()
+		end
+		toCtx.x, toCtx.y = origX, origY
+		return toCtx
+	end},
+	b = {{exclusive = true}, function(editor, toCtx)
+		local origX, origY = toCtx.x, toCtx.y
+		local buf = editor:getCurrentBuffer()
+		if buf == nil then
+			return
+		end
+		local repeatCount = helpers.getRepeatCount1(editor)
+		local newX
+		while editor:isRunning() and toCtx.y >= 1 do
+			newX, repeatCount = helpers.findWordInLine(editor, toCtx, {backward = true, wordEnd = false, WORDs = false, count = repeatCount})
+			if newX then
+				toCtx.x = newX
+				toCtx.wantX = nil
+				return toCtx
+			end
+			toCtx.y = toCtx.y - 1
+			toCtx.x = sysencoding.len(buf:getLine(toCtx.y) or "") + 1
+			editor.typeahead:yieldCPU()
+		end
+		toCtx.x, toCtx.y = origX, origY
+		return toCtx
+	end},
+	B = {{exclusive = true}, function(editor, toCtx)
+		local origX, origY = toCtx.x, toCtx.y
+		local buf = editor:getCurrentBuffer()
+		if buf == nil then
+			return
+		end
+		local repeatCount = helpers.getRepeatCount1(editor)
+		local newX
+		while editor:isRunning() and toCtx.y >= 1 do
+			newX, repeatCount = helpers.findWordInLine(editor, toCtx, {backward = true, wordEnd = false, WORDs = true, count = repeatCount})
+			if newX then
+				toCtx.x = newX
+				toCtx.wantX = nil
+				return toCtx
+			end
+			toCtx.y = toCtx.y - 1
+			toCtx.x = sysencoding.len(buf:getLine(toCtx.y) or "") + 1
+			editor.typeahead:yieldCPU()
+		end
+		toCtx.x, toCtx.y = origX, origY
+		return toCtx
+	end},
+	e = {{}, function(editor, toCtx)
+		local origX, origY = toCtx.x, toCtx.y
+		local buf = editor:getCurrentBuffer()
+		if buf == nil then
+			return
+		end
+		local lineCount = buf:getLineCount()
+		local repeatCount = helpers.getRepeatCount1(editor)
+		local newX
+		while editor:isRunning() and toCtx.y <= lineCount do
+			newX, repeatCount = helpers.findWordInLine(editor, toCtx, {backward = false, wordEnd = true, WORDs = false, count = repeatCount})
+			if newX then
+				toCtx.x = newX
+				toCtx.wantX = nil
+				return toCtx
+			end
+			toCtx.y = toCtx.y + 1
+			toCtx.x = 0
+			editor.typeahead:yieldCPU()
+		end
+		toCtx.x, toCtx.y = origX, origY
+		return toCtx
+	end},
+	E = {{}, function(editor, toCtx)
+		local origX, origY = toCtx.x, toCtx.y
+		local buf = editor:getCurrentBuffer()
+		if buf == nil then
+			return
+		end
+		local lineCount = buf:getLineCount()
+		local repeatCount = helpers.getRepeatCount1(editor)
+		local newX
+		while editor:isRunning() and toCtx.y <= lineCount do
+			newX, repeatCount = helpers.findWordInLine(editor, toCtx, {backward = false, wordEnd = true, WORDs = true, count = repeatCount})
+			if newX then
+				toCtx.x = newX
+				toCtx.wantX = nil
+				return toCtx
+			end
+			toCtx.y = toCtx.y + 1
+			toCtx.x = 0
+			editor.typeahead:yieldCPU()
+		end
+		toCtx.x, toCtx.y = origX, origY
+		return toCtx
+	end},
+	ge = {{}, function(editor, toCtx)
+		local origX, origY = toCtx.x, toCtx.y
+		local buf = editor:getCurrentBuffer()
+		if buf == nil then
+			return
+		end
+		local repeatCount = helpers.getRepeatCount1(editor)
+		local newX
+		while editor:isRunning() and toCtx.y >= 1 do
+			newX, repeatCount = helpers.findWordInLine(editor, toCtx, {backward = true, wordEnd = true, WORDs = false, count = repeatCount})
+			if newX then
+				toCtx.x = newX
+				toCtx.wantX = nil
+				return toCtx
+			end
+			toCtx.y = toCtx.y - 1
+			toCtx.x = sysencoding.len(buf:getLine(toCtx.y) or "") + 1
+			editor.typeahead:yieldCPU()
+		end
+		toCtx.x, toCtx.y = origX, origY
+		return toCtx
+	end},
+	gE = {{}, function(editor, toCtx)
+		local origX, origY = toCtx.x, toCtx.y
+		local buf = editor:getCurrentBuffer()
+		if buf == nil then
+			return
+		end
+		local repeatCount = helpers.getRepeatCount1(editor)
+		local newX
+		while editor:isRunning() and toCtx.y >= 1 do
+			newX, repeatCount = helpers.findWordInLine(editor, toCtx, {backward = true, wordEnd = true, WORDs = true, count = repeatCount})
+			if newX then
+				toCtx.x = newX
+				toCtx.wantX = nil
+				return toCtx
+			end
+			toCtx.y = toCtx.y - 1
+			toCtx.x = sysencoding.len(buf:getLine(toCtx.y) or "") + 1
+			editor.typeahead:yieldCPU()
+		end
+		toCtx.x, toCtx.y = origX, origY
 		return toCtx
 	end},
 }

@@ -18,6 +18,14 @@ local function pullNative()
 	return table.pack(event.pull())
 end
 
+local function pullNativeTimeout(to)
+	local ev = table.pack(event.pull(to))
+	if not ev[1] then
+		return nil
+	end
+	return ev
+end
+
 local function isTerminalResize(native)
 	if native[1] == "screen_resized" then
 		return true, {
@@ -141,6 +149,7 @@ return {
 	keyScanCodes = keyboard.keys,
 	pasteKey = "insert",
 	pullNative = pullNative,
+	pullNativeTimeout = pullNativeTimeout,
 	isTerminalResize = isTerminalResize,
 	isMouseDown = isMouseDown,
 	isMouseDrag = isMouseDrag,

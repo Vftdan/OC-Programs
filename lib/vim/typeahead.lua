@@ -364,6 +364,12 @@ local Typeahead = makeClass {
 		local ev = events.pullNative()
 		self:_handleNativeEvent(ev)
 	end,
+	yieldCPU = function(self)
+		local ev = events.pullNativeTimeout(0.05)
+		if ev then
+			self:_handleNativeEvent(ev)
+		end
+	end,
 	getLatestModifiers = function(self, resetPrefixed)
 		local result = {}
 		local k, v

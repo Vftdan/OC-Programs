@@ -1,6 +1,9 @@
 local sysencoding = require("vim.platform.sysencoding")
 local math = require("math")
 
+local KEYWORD_PTN = "[%w_\x80-\xff]+"
+local PUNCT_PTN = "[^%s%w_\x80-\xff]+"
+local NONSPACE_PTN = "%S+"
 local MAGIC_CHARS = "().%+-*?[^$"
 local MAGIC_CHARS_PTN
 
@@ -79,7 +82,116 @@ local function findAll(haystack, needle, opts)
 	return result
 end
 
+local function findWordBoundaries(haystack, opts)
+	opts = opts or {}
+	local start = opts.start or 1
+	if not opts.bytes then
+		start = byteLengthBetween(haystack, 1, start - 1) + 1
+	end
+	local result = {}
+	local matches = {
+		keyword = {haystack:find(KEYWORD_PTN, start)},
+		punct = {haystack:find(PUNCT_PTN, start)},
+	}
+	while matches.keyword[1] or matches.punct[1] do
+		local m
+		local punctStart = matches.punct[1]
+		local keywordStart = matches.keyword[1]
+		if not punctStart or keywordStart and keywordStart < punctStart then
+			m = matches.keyword
+			m.isPunct = false
+			start = m[2] + 1
+			matches.keyword = {haystack:find(KEYWORD_PTN, start)}
+		else
+			m = matches.punct
+			m.isPunct = true
+			start = m[2] + 1
+			matches.punct = {haystack:find(PUNCT_PTN, start)}
+		end
+		table.insert(result, m)
+	end
+	if not opts.bytes then
+		for _, m in ipairs(result) do
+			m[1] = unitPointIndex(haystack, m[1])
+			m[2] = unitPointIndex(haystack, m[2])
+		end
+	end
+	return result
+end
+
+local function findNonSpaceBoundaries(haystack, opts)
+	opts = opts or {}
+	local start = opts.start or 1
+	if not opts.bytes then
+		start = byteLengthBetween(haystack, 1, start - 1) + 1
+	end
+	local result = {}
+	while true do
+		local m = {haystack:find(NONSPACE_PTN, start)}
+		if not m[1] then
+			break
+		end
+		table.insert(result, m)
+		start = m[2] + 1
+	end
+	if not opts.bytes then
+		for _, m in ipairs(result) do
+			m[1] = unitPointIndex(haystack, m[1])
+			m[2] = unitPointIndex(haystack, m[2])
+		end
+	end
+	return result
+end
+
+local function matchesGetAdjacent(matches, target, key, opts)
+	opts = opts or {}
+	local backward = opts.backward or false
+	local count = opts.count or 1
+	key = key or 1
+	local lower = 1
+	local higher = #matches
+	if higher < 1 then
+		return nil, count
+	end
+	local guess = math.floor((lower + higher) / 2)
+	while lower < higher do
+		local m = matches[guess]
+		if m[key] == target then
+			break
+		end
+		if m[key] < target then
+			lower = guess
+			guess = math.ceil((guess + higher) / 2)
+		else
+			higher = guess
+			guess = math.floor((guess + lower) / 2)
+		end
+	end
+	local m = matches[guess]
+	if backward then
+		if m[key] >= target then
+			guess = guess - 1
+		end
+		guess = guess - count + 1
+		if guess < 1 then
+			return nil, 1 - guess
+		end
+	else
+		if m[key] <= target then
+			guess = guess + 1
+		end
+		guess = guess + count - 1
+		if guess > #matches then
+			return nil, guess - #matches
+		end
+	end
+	return matches[guess], 0
+end
+
 return {
 	escapePtn = escapePtn,
 	findAll = findAll,
+	findWordBoundaries = findWordBoundaries,
+	findNonSpaceBoundaries = findNonSpaceBoundaries,
+	matchesGetAdjacent = matchesGetAdjacent,
 }
