@@ -2,9 +2,15 @@ local makeClass = require("vim.makeclass")
 local sysencoding = require("vim.platform.sysencoding")
 local itertools = require("vim.itertools")
 
+local weakMapMeta = {__mode = "k"}
+local function weakMap()
+	return setmetatable({}, weakMapMeta)
+end
+
 local Buffer = makeClass {
 	init = function(self)
 		self._lines = {}
+		self._cacheRoot = {}
 	end,
 	getLineCount = function(self)
 		return #self._lines
@@ -12,21 +18,45 @@ local Buffer = makeClass {
 	getLine = function(self, i)
 		return self._lines[i]
 	end,
+	getScopedLineCache = function(self, i, scope)
+		if scope == nil then
+			return nil
+		end
+		local lineCache = self._cacheRoot[i]
+		if not lineCache then
+			return nil
+		end
+		return lineCache[scope]
+	end,
+	setScopedLineCache = function(self, i, scope, value)
+		if scope == nil then
+			return
+		end
+		local lineCache = self._cacheRoot[i]
+		if not lineCache then
+			return
+		end
+		lineCache[scope] = value
+	end,
 	read = function(self)
 		local f = self._filename and io.open(self._filename, "r")
 		local lines = {}
+		local cacheRoot = {}
 		if f ~= nil then
 			local line = f:read()
 			while line ~= nil do
 				lines[#lines + 1] = line
+				cacheRoot[#lines] = weakMap()
 				line = f:read()
 			end
 			f:close()
 		end
 		if #lines < 1 then
 			lines[1] = ""
+			cacheRoot[1] = weakMap()
 		end
 		self._lines = lines
+		self._cacheRoot = cacheRoot
 	end,
 	write = function(self, filename)
 		-- TODO writebackup
@@ -104,6 +134,7 @@ local Buffer = makeClass {
 		end
 		for i = edY, begY, -1 do
 			table.remove(self._lines, i)
+			table.remove(self._cacheRoot, i)
 		end
 		for i, line in itertools.reversedIpairs(txt) do
 			if i == #txt then
@@ -113,6 +144,7 @@ local Buffer = makeClass {
 				line = prefix .. line
 			end
 			table.insert(self._lines, begY, line)
+			table.insert(self._cacheRoot, begY, weakMap())
 		end
 	end,
 	setFilename = function(self, name)

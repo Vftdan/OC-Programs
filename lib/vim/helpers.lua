@@ -72,8 +72,17 @@ local function findCharacterInLine(editor, ch, toCtx, opts)
 	if not line then
 		return nil
 	end
-	-- TODO cache
-	local matches = strptn.findAll(line, ch)
+	local cache = buf:getScopedLineCache(toCtx.y, "characterPos")
+	if cache == nil then
+		cache = {}
+		buf:setScopedLineCache(toCtx.y, "characterPos", cache)
+	end
+	local matches = cache[ch]
+	if not matches then
+		matches = strptn.findAll(line, ch)
+		-- TODO lru eviction?
+		cache[ch] = matches
+	end
 	local m = strptn.matchesGetAdjacent(matches, toCtx.x, 1, {backward = opts.backward or false, count = opts.count or 1})
 	if not m then
 		return nil
@@ -92,12 +101,19 @@ local function findWordInLine(editor, toCtx, opts)
 	if not line then
 		return nil
 	end
-	-- TODO cache
 	local matches
 	if opts.WORDs then
-		matches = strptn.findNonSpaceBoundaries(line)
+		matches = buf:getScopedLineCache(toCtx.y, "WORDs")
+		if not matches then
+			matches = strptn.findNonSpaceBoundaries(line)
+			buf:setScopedLineCache(toCtx.y, "WORDs", matches)
+		end
 	else
-		matches = strptn.findWordBoundaries(line)
+		matches = buf:getScopedLineCache(toCtx.y, "words")
+		if not matches then
+			matches = strptn.findWordBoundaries(line)
+			buf:setScopedLineCache(toCtx.y, "words", matches)
+		end
 	end
 	local key = 1
 	if opts.wordEnd then
