@@ -154,9 +154,22 @@ local function getTextObjectAsRegister(editor, to)
 	if buf == nil then
 		return nil
 	end
-	local txt = buf:getTextBetween(getTextObjectEnds(editor, to))
-	if txt == nil then
-		return nil
+	local txt
+	if to.linewise then
+		-- Don't insert a leading/trailing line break like getTextObjectEnds does
+		local begX, begY, edX, edY = to.initialX, to.initialY, to.x, to.y
+		if begY > edY then
+			begY, edY = edY, begY
+		end
+		txt = {}
+		for y = begY, edY do
+			table.insert(txt, buf:getLine(y))
+		end
+	else
+		txt = buf:getTextBetween(getTextObjectEnds(editor, to))
+		if txt == nil then
+			return nil
+		end
 	end
 	return {
 		lines = txt,
@@ -497,6 +510,14 @@ function setTextObjectAsRegister(editor, to, regValue)
 		return nil
 	end
 	local txt = regValue.lines
+	if regValue.linewise then
+		txt = itertools.collect(ipairs(txt))
+		if isEmptyTextObject(editor, to) and to.x > 0 then
+			table.insert(txt, 1, "")
+		else
+			table.insert(txt, "")
+		end
+	end
 	buf:setTextBetween(txt, getTextObjectEnds(editor, to))
 end
 

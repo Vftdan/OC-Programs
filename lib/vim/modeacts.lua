@@ -49,7 +49,6 @@ local pasteOperator = function(editor, to)
 	elseif oldRegValue.linewise then
 		-- With an empty text object, a linewise register should perform linewise paste
 		-- FIXME consider less dirty solution
-		-- FIXME line break is inserted at the wrong end of the pasted text half of the time
 		local cursorToCtx = helpers.makeMotionContext(editor)
 		if to.x < cursorToCtx.x then  -- "P"
 			to.initialX = 1
