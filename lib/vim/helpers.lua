@@ -295,6 +295,41 @@ local function performCursorMotion(editor, toDef, opts)
 	return true
 end
 
+local function performWordMotion(editor, toCtx, opts)
+	opts = opts or {}
+	local origX, origY = toCtx.x, toCtx.y
+	local buf = editor:getCurrentBuffer()
+	if buf == nil then
+		return
+	end
+	local lineCount = buf:getLineCount()
+	local repeatCount = getRepeatCount1(editor)
+	local newX
+	local yieldCounter = 0
+	while editor:isRunning() and toCtx.y >= 1 and toCtx.y <= lineCount do
+		newX, repeatCount = findWordInLine(editor, toCtx, {backward = opts.backward, wordEnd = opts.wordEnd, WORDs = opts.WORDs, count = repeatCount})
+		if newX then
+			toCtx.x = newX
+			toCtx.wantX = nil
+			return toCtx
+		end
+		if opts.backward then
+			toCtx.y = toCtx.y - 1
+			toCtx.x = sysencoding.len(buf:getLine(toCtx.y) or "") + 1
+		else
+			toCtx.y = toCtx.y + 1
+			toCtx.x = 0
+		end
+		yieldCounter = yieldCounter + 1
+		if yieldCounter > 10 then
+			yieldCounter = 0
+			editor.typeahead:yieldCPU()
+		end
+	end
+	toCtx.x, toCtx.y = origX, origY
+	return toCtx
+end
+
 local function pullCountString(editor)
 	editor.typeahead:applyModeMappings()
 	local ch = editor.typeahead:peek()
@@ -599,6 +634,7 @@ return {
 	makeMotionContext = makeMotionContext,
 	motionContextIntoBounds = motionContextIntoBounds,
 	performCursorMotion = performCursorMotion,
+	performWordMotion = performWordMotion,
 	pullCountString = pullCountString,
 	pullInputCharacter = pullInputCharacter,
 	pullTextObject = pullTextObject,

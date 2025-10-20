@@ -243,224 +243,28 @@ simpleMotions = {
 		return toCtx
 	end},
 	w = {{exclusive = true}, function(editor, toCtx)
-		local origX, origY = toCtx.x, toCtx.y
-		local buf = editor:getCurrentBuffer()
-		if buf == nil then
-			return
-		end
-		local lineCount = buf:getLineCount()
-		local repeatCount = helpers.getRepeatCount1(editor)
-		local newX
-		local yieldCounter = 0
-		while editor:isRunning() and toCtx.y <= lineCount do
-			newX, repeatCount = helpers.findWordInLine(editor, toCtx, {backward = false, wordEnd = false, WORDs = false, count = repeatCount})
-			if newX then
-				toCtx.x = newX
-				toCtx.wantX = nil
-				return toCtx
-			end
-			toCtx.y = toCtx.y + 1
-			toCtx.x = 0
-			yieldCounter = yieldCounter + 1
-			if yieldCounter > 10 then
-				yieldCounter = 0
-				editor.typeahead:yieldCPU()
-			end
-		end
-		toCtx.x, toCtx.y = origX, origY
-		return toCtx
+		return helpers.performWordMotion(editor, toCtx, {backward = false, wordEnd = false, WORDs = false})
 	end},
 	W = {{exclusive = true}, function(editor, toCtx)
-		local origX, origY = toCtx.x, toCtx.y
-		local buf = editor:getCurrentBuffer()
-		if buf == nil then
-			return
-		end
-		local lineCount = buf:getLineCount()
-		local repeatCount = helpers.getRepeatCount1(editor)
-		local newX
-		local yieldCounter = 0
-		while toCtx.y <= lineCount do
-			newX, repeatCount = helpers.findWordInLine(editor, toCtx, {backward = false, wordEnd = false, WORDs = true, count = repeatCount})
-			if newX then
-				toCtx.x = newX
-				toCtx.wantX = nil
-				return toCtx
-			end
-			toCtx.y = toCtx.y + 1
-			toCtx.x = 0
-			yieldCounter = yieldCounter + 1
-			if yieldCounter > 10 then
-				yieldCounter = 0
-				editor.typeahead:yieldCPU()
-			end
-		end
-		toCtx.x, toCtx.y = origX, origY
-		return toCtx
+		return helpers.performWordMotion(editor, toCtx, {backward = false, wordEnd = false, WORDs = true})
 	end},
 	b = {{exclusive = true}, function(editor, toCtx)
-		local origX, origY = toCtx.x, toCtx.y
-		local buf = editor:getCurrentBuffer()
-		if buf == nil then
-			return
-		end
-		local repeatCount = helpers.getRepeatCount1(editor)
-		local newX
-		local yieldCounter = 0
-		while editor:isRunning() and toCtx.y >= 1 do
-			newX, repeatCount = helpers.findWordInLine(editor, toCtx, {backward = true, wordEnd = false, WORDs = false, count = repeatCount})
-			if newX then
-				toCtx.x = newX
-				toCtx.wantX = nil
-				return toCtx
-			end
-			toCtx.y = toCtx.y - 1
-			toCtx.x = sysencoding.len(buf:getLine(toCtx.y) or "") + 1
-			yieldCounter = yieldCounter + 1
-			if yieldCounter > 10 then
-				yieldCounter = 0
-				editor.typeahead:yieldCPU()
-			end
-		end
-		toCtx.x, toCtx.y = origX, origY
-		return toCtx
+		return helpers.performWordMotion(editor, toCtx, {backward = true, wordEnd = false, WORDs = false})
 	end},
 	B = {{exclusive = true}, function(editor, toCtx)
-		local origX, origY = toCtx.x, toCtx.y
-		local buf = editor:getCurrentBuffer()
-		if buf == nil then
-			return
-		end
-		local repeatCount = helpers.getRepeatCount1(editor)
-		local newX
-		local yieldCounter = 0
-		while editor:isRunning() and toCtx.y >= 1 do
-			newX, repeatCount = helpers.findWordInLine(editor, toCtx, {backward = true, wordEnd = false, WORDs = true, count = repeatCount})
-			if newX then
-				toCtx.x = newX
-				toCtx.wantX = nil
-				return toCtx
-			end
-			toCtx.y = toCtx.y - 1
-			toCtx.x = sysencoding.len(buf:getLine(toCtx.y) or "") + 1
-			yieldCounter = yieldCounter + 1
-			if yieldCounter > 10 then
-				yieldCounter = 0
-				editor.typeahead:yieldCPU()
-			end
-		end
-		toCtx.x, toCtx.y = origX, origY
-		return toCtx
+		return helpers.performWordMotion(editor, toCtx, {backward = true, wordEnd = false, WORDs = true})
 	end},
 	e = {{}, function(editor, toCtx)
-		local origX, origY = toCtx.x, toCtx.y
-		local buf = editor:getCurrentBuffer()
-		if buf == nil then
-			return
-		end
-		local lineCount = buf:getLineCount()
-		local repeatCount = helpers.getRepeatCount1(editor)
-		local newX
-		local yieldCounter = 0
-		while editor:isRunning() and toCtx.y <= lineCount do
-			newX, repeatCount = helpers.findWordInLine(editor, toCtx, {backward = false, wordEnd = true, WORDs = false, count = repeatCount})
-			if newX then
-				toCtx.x = newX
-				toCtx.wantX = nil
-				return toCtx
-			end
-			toCtx.y = toCtx.y + 1
-			toCtx.x = 0
-			yieldCounter = yieldCounter + 1
-			if yieldCounter > 10 then
-				yieldCounter = 0
-				editor.typeahead:yieldCPU()
-			end
-		end
-		toCtx.x, toCtx.y = origX, origY
-		return toCtx
+		return helpers.performWordMotion(editor, toCtx, {backward = false, wordEnd = true, WORDs = false})
 	end},
 	E = {{}, function(editor, toCtx)
-		local origX, origY = toCtx.x, toCtx.y
-		local buf = editor:getCurrentBuffer()
-		if buf == nil then
-			return
-		end
-		local lineCount = buf:getLineCount()
-		local repeatCount = helpers.getRepeatCount1(editor)
-		local newX
-		local yieldCounter = 0
-		while editor:isRunning() and toCtx.y <= lineCount do
-			newX, repeatCount = helpers.findWordInLine(editor, toCtx, {backward = false, wordEnd = true, WORDs = true, count = repeatCount})
-			if newX then
-				toCtx.x = newX
-				toCtx.wantX = nil
-				return toCtx
-			end
-			toCtx.y = toCtx.y + 1
-			toCtx.x = 0
-			yieldCounter = yieldCounter + 1
-			if yieldCounter > 10 then
-				yieldCounter = 0
-				editor.typeahead:yieldCPU()
-			end
-		end
-		toCtx.x, toCtx.y = origX, origY
-		return toCtx
+		return helpers.performWordMotion(editor, toCtx, {backward = false, wordEnd = true, WORDs = true})
 	end},
 	ge = {{}, function(editor, toCtx)
-		local origX, origY = toCtx.x, toCtx.y
-		local buf = editor:getCurrentBuffer()
-		if buf == nil then
-			return
-		end
-		local repeatCount = helpers.getRepeatCount1(editor)
-		local newX
-		local yieldCounter = 0
-		while editor:isRunning() and toCtx.y >= 1 do
-			newX, repeatCount = helpers.findWordInLine(editor, toCtx, {backward = true, wordEnd = true, WORDs = false, count = repeatCount})
-			if newX then
-				toCtx.x = newX
-				toCtx.wantX = nil
-				return toCtx
-			end
-			toCtx.y = toCtx.y - 1
-			toCtx.x = sysencoding.len(buf:getLine(toCtx.y) or "") + 1
-			yieldCounter = yieldCounter + 1
-			if yieldCounter > 10 then
-				yieldCounter = 0
-				editor.typeahead:yieldCPU()
-			end
-		end
-		toCtx.x, toCtx.y = origX, origY
-		return toCtx
+		return helpers.performWordMotion(editor, toCtx, {backward = true, wordEnd = true, WORDs = false})
 	end},
 	gE = {{}, function(editor, toCtx)
-		local origX, origY = toCtx.x, toCtx.y
-		local buf = editor:getCurrentBuffer()
-		if buf == nil then
-			return
-		end
-		local repeatCount = helpers.getRepeatCount1(editor)
-		local newX
-		local yieldCounter = 0
-		while editor:isRunning() and toCtx.y >= 1 do
-			newX, repeatCount = helpers.findWordInLine(editor, toCtx, {backward = true, wordEnd = true, WORDs = true, count = repeatCount})
-			if newX then
-				toCtx.x = newX
-				toCtx.wantX = nil
-				return toCtx
-			end
-			toCtx.y = toCtx.y - 1
-			toCtx.x = sysencoding.len(buf:getLine(toCtx.y) or "") + 1
-			yieldCounter = yieldCounter + 1
-			if yieldCounter > 10 then
-				yieldCounter = 0
-				editor.typeahead:yieldCPU()
-			end
-		end
-		toCtx.x, toCtx.y = origX, origY
-		return toCtx
+		return helpers.performWordMotion(editor, toCtx, {backward = true, wordEnd = true, WORDs = true})
 	end},
 	["0"] = helpers.textObjects.sol,
 	["^"] = helpers.textObjects.solNonSpace,
