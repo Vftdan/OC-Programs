@@ -251,6 +251,7 @@ simpleMotions = {
 		local lineCount = buf:getLineCount()
 		local repeatCount = helpers.getRepeatCount1(editor)
 		local newX
+		local yieldCounter = 0
 		while editor:isRunning() and toCtx.y <= lineCount do
 			newX, repeatCount = helpers.findWordInLine(editor, toCtx, {backward = false, wordEnd = false, WORDs = false, count = repeatCount})
 			if newX then
@@ -260,7 +261,11 @@ simpleMotions = {
 			end
 			toCtx.y = toCtx.y + 1
 			toCtx.x = 0
-			editor.typeahead:yieldCPU()
+			yieldCounter = yieldCounter + 1
+			if yieldCounter > 10 then
+				yieldCounter = 0
+				editor.typeahead:yieldCPU()
+			end
 		end
 		toCtx.x, toCtx.y = origX, origY
 		return toCtx
@@ -274,6 +279,7 @@ simpleMotions = {
 		local lineCount = buf:getLineCount()
 		local repeatCount = helpers.getRepeatCount1(editor)
 		local newX
+		local yieldCounter = 0
 		while toCtx.y <= lineCount do
 			newX, repeatCount = helpers.findWordInLine(editor, toCtx, {backward = false, wordEnd = false, WORDs = true, count = repeatCount})
 			if newX then
@@ -283,7 +289,11 @@ simpleMotions = {
 			end
 			toCtx.y = toCtx.y + 1
 			toCtx.x = 0
-			editor.typeahead:yieldCPU()
+			yieldCounter = yieldCounter + 1
+			if yieldCounter > 10 then
+				yieldCounter = 0
+				editor.typeahead:yieldCPU()
+			end
 		end
 		toCtx.x, toCtx.y = origX, origY
 		return toCtx
@@ -296,6 +306,7 @@ simpleMotions = {
 		end
 		local repeatCount = helpers.getRepeatCount1(editor)
 		local newX
+		local yieldCounter = 0
 		while editor:isRunning() and toCtx.y >= 1 do
 			newX, repeatCount = helpers.findWordInLine(editor, toCtx, {backward = true, wordEnd = false, WORDs = false, count = repeatCount})
 			if newX then
@@ -305,7 +316,11 @@ simpleMotions = {
 			end
 			toCtx.y = toCtx.y - 1
 			toCtx.x = sysencoding.len(buf:getLine(toCtx.y) or "") + 1
-			editor.typeahead:yieldCPU()
+			yieldCounter = yieldCounter + 1
+			if yieldCounter > 10 then
+				yieldCounter = 0
+				editor.typeahead:yieldCPU()
+			end
 		end
 		toCtx.x, toCtx.y = origX, origY
 		return toCtx
@@ -318,6 +333,7 @@ simpleMotions = {
 		end
 		local repeatCount = helpers.getRepeatCount1(editor)
 		local newX
+		local yieldCounter = 0
 		while editor:isRunning() and toCtx.y >= 1 do
 			newX, repeatCount = helpers.findWordInLine(editor, toCtx, {backward = true, wordEnd = false, WORDs = true, count = repeatCount})
 			if newX then
@@ -327,7 +343,11 @@ simpleMotions = {
 			end
 			toCtx.y = toCtx.y - 1
 			toCtx.x = sysencoding.len(buf:getLine(toCtx.y) or "") + 1
-			editor.typeahead:yieldCPU()
+			yieldCounter = yieldCounter + 1
+			if yieldCounter > 10 then
+				yieldCounter = 0
+				editor.typeahead:yieldCPU()
+			end
 		end
 		toCtx.x, toCtx.y = origX, origY
 		return toCtx
@@ -341,6 +361,7 @@ simpleMotions = {
 		local lineCount = buf:getLineCount()
 		local repeatCount = helpers.getRepeatCount1(editor)
 		local newX
+		local yieldCounter = 0
 		while editor:isRunning() and toCtx.y <= lineCount do
 			newX, repeatCount = helpers.findWordInLine(editor, toCtx, {backward = false, wordEnd = true, WORDs = false, count = repeatCount})
 			if newX then
@@ -350,7 +371,11 @@ simpleMotions = {
 			end
 			toCtx.y = toCtx.y + 1
 			toCtx.x = 0
-			editor.typeahead:yieldCPU()
+			yieldCounter = yieldCounter + 1
+			if yieldCounter > 10 then
+				yieldCounter = 0
+				editor.typeahead:yieldCPU()
+			end
 		end
 		toCtx.x, toCtx.y = origX, origY
 		return toCtx
@@ -364,6 +389,7 @@ simpleMotions = {
 		local lineCount = buf:getLineCount()
 		local repeatCount = helpers.getRepeatCount1(editor)
 		local newX
+		local yieldCounter = 0
 		while editor:isRunning() and toCtx.y <= lineCount do
 			newX, repeatCount = helpers.findWordInLine(editor, toCtx, {backward = false, wordEnd = true, WORDs = true, count = repeatCount})
 			if newX then
@@ -373,7 +399,11 @@ simpleMotions = {
 			end
 			toCtx.y = toCtx.y + 1
 			toCtx.x = 0
-			editor.typeahead:yieldCPU()
+			yieldCounter = yieldCounter + 1
+			if yieldCounter > 10 then
+				yieldCounter = 0
+				editor.typeahead:yieldCPU()
+			end
 		end
 		toCtx.x, toCtx.y = origX, origY
 		return toCtx
@@ -386,6 +416,7 @@ simpleMotions = {
 		end
 		local repeatCount = helpers.getRepeatCount1(editor)
 		local newX
+		local yieldCounter = 0
 		while editor:isRunning() and toCtx.y >= 1 do
 			newX, repeatCount = helpers.findWordInLine(editor, toCtx, {backward = true, wordEnd = true, WORDs = false, count = repeatCount})
 			if newX then
@@ -395,7 +426,11 @@ simpleMotions = {
 			end
 			toCtx.y = toCtx.y - 1
 			toCtx.x = sysencoding.len(buf:getLine(toCtx.y) or "") + 1
-			editor.typeahead:yieldCPU()
+			yieldCounter = yieldCounter + 1
+			if yieldCounter > 10 then
+				yieldCounter = 0
+				editor.typeahead:yieldCPU()
+			end
 		end
 		toCtx.x, toCtx.y = origX, origY
 		return toCtx
@@ -408,6 +443,7 @@ simpleMotions = {
 		end
 		local repeatCount = helpers.getRepeatCount1(editor)
 		local newX
+		local yieldCounter = 0
 		while editor:isRunning() and toCtx.y >= 1 do
 			newX, repeatCount = helpers.findWordInLine(editor, toCtx, {backward = true, wordEnd = true, WORDs = true, count = repeatCount})
 			if newX then
@@ -417,7 +453,11 @@ simpleMotions = {
 			end
 			toCtx.y = toCtx.y - 1
 			toCtx.x = sysencoding.len(buf:getLine(toCtx.y) or "") + 1
-			editor.typeahead:yieldCPU()
+			yieldCounter = yieldCounter + 1
+			if yieldCounter > 10 then
+				yieldCounter = 0
+				editor.typeahead:yieldCPU()
+			end
 		end
 		toCtx.x, toCtx.y = origX, origY
 		return toCtx
