@@ -437,6 +437,7 @@ simpleMotions = {
 		helpers.motionContextIntoBounds(editor, toCtx)
 		local line = buf:getLine(toCtx.y)
 		toCtx.x = strptn.firstNonSpace(line) or sysencoding.len(line) + 1
+		toCtx.wantX = nil
 		return toCtx
 	end},
 	G = {{}, function(editor, toCtx)
@@ -455,6 +456,7 @@ simpleMotions = {
 		helpers.motionContextIntoBounds(editor, toCtx)
 		local line = buf:getLine(toCtx.y)
 		toCtx.x = strptn.firstNonSpace(line) or sysencoding.len(line) + 1
+		toCtx.wantX = nil
 		return toCtx
 	end},
 }

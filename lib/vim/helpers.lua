@@ -507,6 +507,7 @@ textObjects = {
 		local line = buf:getLine(toCtx.y)
 		local lineLength = sysencoding.len(line)
 		toCtx.x = lineLength + 1
+		toCtx.wantX = nil
 		return toCtx
 	end},
 	sol = {{exclusive = true}, function(editor, toCtx)
@@ -519,6 +520,7 @@ textObjects = {
 			toCtx.y = 1
 		end
 		toCtx.x = 1
+		toCtx.wantX = nil
 		return toCtx
 	end},
 	solNonSpace = {{exclusive = true}, function(editor, toCtx)
@@ -532,6 +534,7 @@ textObjects = {
 		end
 		local line = buf:getLine(toCtx.y)
 		toCtx.x = strptn.firstNonSpace(line) or sysencoding.len(line) + 1
+		toCtx.wantX = nil
 		return toCtx
 	end},
 	line = {{linewise = true}, function(editor, toCtx)
