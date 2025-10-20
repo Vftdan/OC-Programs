@@ -61,7 +61,15 @@ local pasteOperator = function(editor, to)
 		end
 	end
 	-- TODO repetition
-	helpers.setTextObjectAsRegister(editor, to, oldRegValue)
+	local yieldCounter = 0
+	for _ = 1, helpers.getRepeatCount1(editor) do
+		helpers.setTextObjectAsRegister(editor, to, oldRegValue)
+		yieldCounter = yieldCounter + 1
+		if yieldCounter > 10 then
+			yieldCounter = 0
+			editor.typeahead:yieldCPU()
+		end
+	end
 end
 
 local impendingOperators = {  -- don't trigger operator-pending mode when used from normal mode
