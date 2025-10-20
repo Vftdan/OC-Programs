@@ -160,10 +160,18 @@ local function matchesGetAdjacent(matches, target, key, opts)
 			break
 		end
 		if m[key] < target then
-			lower = guess
+			if lower == guess then
+				lower = lower + 1
+			else
+				lower = guess
+			end
 			guess = math.ceil((guess + higher) / 2)
 		else
-			higher = guess
+			if higher == guess then
+				higher = higher - 1
+			else
+				higher = guess
+			end
 			guess = math.floor((guess + lower) / 2)
 		end
 	end
