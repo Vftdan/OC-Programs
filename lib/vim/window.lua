@@ -76,7 +76,7 @@ local function printableStyledToView(orig, scrollX, contentWidth)
 					firstCodePoint = entry.firstCodePoint + amount,
 					lastCodePoint = entry.lastCodePoint,
 					firstColumn = entry.firstColumn,
-					lastColumn = lastCol,
+					lastColumn = entry.lastColumn,
 				}
 				if entry.lastCodePoint < entry.firstCodePoint then
 					entry.firstCodePoint = entry.lastCodePoint
