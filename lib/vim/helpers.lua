@@ -406,6 +406,14 @@ function registerValueFromText(editor, txt, protoRegValue)
 	return regValue
 end
 
+local function restoreSelectionMotionContext(editor)
+	-- TODO better interface & change scope
+	if not editor._lastSelection then
+		return makeMotionContext(editor)
+	end
+	return itertools.collect(pairs(editor._lastSelection))
+end
+
 runMode = function(editor, cb, ...)
 	local oldModeMappings = editor.typeahead:getModeMappings()
 	local oldLangMappings = editor.typeahead:getLangMappings()
@@ -499,7 +507,8 @@ function scrollToMotionContextEnd(editor, toCtx)
 end
 
 local function setLastSelection(editor, to)
-	-- TODO
+	-- TODO better interface & change scope
+	editor._lastSelection = to
 end
 
 local function setRepeatCount(editor, num)
@@ -670,6 +679,7 @@ return {
 	pushModeInsert = pushModeInsert,
 	pushModeVisual = pushModeVisual,
 	registerValueFromText = registerValueFromText,
+	restoreSelectionMotionContext = restoreSelectionMotionContext,
 	runMode = runMode,
 	scrollBy = scrollBy,
 	scrollToMotionContextEnd = scrollToMotionContextEnd,

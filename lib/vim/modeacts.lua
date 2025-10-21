@@ -521,6 +521,10 @@ local normalActions = {
 		toCtx.linewise = true
 		helpers.pushModeVisual(editor, toCtx)
 	end,
+	gv = function(editor)
+		local toCtx = helpers.restoreSelectionMotionContext(editor)
+		helpers.pushModeVisual(editor, toCtx)
+	end,
 }
 
 normalActions[":q<cr>"] = normalActions.ZQ
@@ -569,6 +573,8 @@ local insertActions = {
 
 local visualActions = {
 	["<tab>"] = function(editor, toCtx)
+		local to = helpers.finalizeMotion(editor, toCtx)
+		helpers.setLastSelection(editor, to)
 		return true, toCtx
 	end,
 	v = function(editor, toCtx)
@@ -584,6 +590,18 @@ local visualActions = {
 			return false, toCtx
 		end
 		return true, toCtx
+	end,
+	o = function(editor, toCtx)
+		toCtx.x, toCtx.initialX = toCtx.initialX, toCtx.x
+		toCtx.y, toCtx.initialY = toCtx.initialY, toCtx.y
+		toCtx.wantX = nil
+		return false, toCtx
+	end,
+	O = function(editor, toCtx)
+		-- In actual Vim it behaves exactly like `o`, unless in blockwise mode
+		toCtx.x, toCtx.initialX = toCtx.initialX, toCtx.x
+		toCtx.wantX = nil
+		return false, toCtx
 	end,
 }
 
