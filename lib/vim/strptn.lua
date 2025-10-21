@@ -32,17 +32,25 @@ local function unitPointIndex(s, unitIndex)
 	if unitIndex > #s then
 		return len + 1
 	end
-	local lower = unitIndex
-	local higher = len
-	local guess = lower
+	local lower = 1
+	local higher = unitIndex
+	local guess = higher
 	while lower < higher do
-		local firstUnit = byteLengthBetween(s, 1, lower - 1) + 1
-		local lastUnit = byteLengthBetween(s, 1, lower)
+		local firstUnit = byteLengthBetween(s, 1, guess - 1) + 1
+		local lastUnit = byteLengthBetween(s, 1, guess)
 		if firstUnit > unitIndex then
-			higher = guess
+			if higher == guess then
+				higher = higher - 1
+			else
+				higher = guess
+			end
 			guess = math.floor((guess + lower) / 2)
 		elseif lastUnit < unitIndex then
-			lower = guess
+			if lower == guess then
+				lower = lower + 1
+			else
+				lower = guess
+			end
 			guess = math.ceil((guess + higher) / 2)
 		else
 			return guess
