@@ -208,7 +208,7 @@ local Window = makeClass {
 				local psl = self:_getPrintableStyledLine(lineNr)
 				psl = printableStyledToView(psl, self._scrollX, contentWidth)
 				if cursorViewportY == i and cursorViewportX > 0 then
-					psl = printableStyledAddCursor(psl, cursorViewportX)
+					psl = printableStyledAddCursor(psl, cursorX)  -- Cursor is bound to codepoints rather than columns, and codepoints are not affected by scrolling
 				end
 				for _, entry in ipairs(psl) do
 					local chunk = {entry.string}
