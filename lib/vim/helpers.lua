@@ -390,6 +390,13 @@ local function pushModeInsert(editor)
 	performCursorMotion(editor, textObjects.characterBackward)
 end
 
+local function pushModeVisual(editor, toCtx)
+	if modes == nil then
+		modes = require("vim.modes")
+	end
+	runMode(editor, modes.visualMode, toCtx)
+end
+
 function registerValueFromText(editor, txt, protoRegValue)
 	local regValue = {}
 	if protoRegValue ~= nil then
@@ -399,11 +406,12 @@ function registerValueFromText(editor, txt, protoRegValue)
 	return regValue
 end
 
-runMode = function(editor, cb)
+runMode = function(editor, cb, ...)
 	local oldModeMappings = editor.typeahead:getModeMappings()
 	local oldLangMappings = editor.typeahead:getLangMappings()
 	local oldModeMessagge = editor:getModeMessage()
-	local result = table.pack(xpcall(cb, debug.traceback, editor))
+	-- local result = table.pack(xpcall(cb, debug.traceback, editor, ...))
+	local result = {true, cb(editor, ...)}
 	editor.typeahead:setModeMappings(oldModeMappings)
 	editor.typeahead:setLangMappings(oldLangMappings)
 	editor:setModeMessage(oldModeMessagge)
@@ -660,6 +668,7 @@ return {
 	pullInputCharacter = pullInputCharacter,
 	pullTextObject = pullTextObject,
 	pushModeInsert = pushModeInsert,
+	pushModeVisual = pushModeVisual,
 	registerValueFromText = registerValueFromText,
 	runMode = runMode,
 	scrollBy = scrollBy,

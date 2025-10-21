@@ -3,6 +3,7 @@ local sysencoding = require("vim.platform.sysencoding")
 local itertools = require("vim.itertools")
 local makeClass = require("vim.makeclass")
 local strptn = require("vim.strptn")
+local helpers = require("vim.helpers")
 
 local TABSTOP = 8
 
@@ -167,6 +168,74 @@ local function printableStyledAddCursor(orig, cursorX)
 	return result
 end
 
+local function printableStyledAddVisual(orig, lineBegX, lineEdX)
+	local result = {}
+	for _, entry in ipairs(orig) do
+		if lineEdX < entry.firstCodePoint or lineBegX > entry.lastCodePoint then
+			table.insert(result, entry)
+		else
+			local entryLength = entry.lastCodePoint - entry.firstCodePoint + 1
+			local begX = lineBegX - entry.firstCodePoint + 1
+			local edX = lineEdX - entry.firstCodePoint + 1
+			if begX < 1 then
+				begX = 1
+			end
+			if edX > entryLength then
+				edX = entryLength
+			end
+			if begX > 1 then
+				local s = sysencoding.sub(entry.string, 1, begX - 1)
+				local newEntry = {
+					string = s,
+					styleNames = entry.styleNames,
+					firstCodePoint = entry.firstCodePoint,
+					lastCodePoint = entry.firstCodePoint + begX - 2,
+					firstColumn = entry.firstColumn,
+					lastColumn = entry.firstColumn + begX - 2,
+				}
+				if newEntry.lastCodePoint > entry.lastCodePoint then
+					newEntry.lastCodePoint = entry.lastCodePoint
+				end
+				table.insert(result, newEntry)
+			end
+			local s = sysencoding.sub(entry.string, begX, edX)
+			local styleWithVisual = itertools.collect(ipairs(entry.styleNames))
+			styleWithVisual[#styleWithVisual + 1] = "visual"
+			local newEntry = {
+				string = s,
+				styleNames = styleWithVisual,
+				firstCodePoint = entry.firstCodePoint + begX - 1,
+				lastCodePoint = entry.firstCodePoint + edX - 1,
+				firstColumn = entry.firstColumn + begX - 1,
+				lastColumn = entry.firstColumn + edX - 1,
+			}
+			if newEntry.firstCodePoint > entry.lastCodePoint then
+				newEntry.firstCodePoint = entry.lastCodePoint
+			end
+			if newEntry.lastCodePoint > entry.lastCodePoint then
+				newEntry.lastCodePoint = entry.lastCodePoint
+			end
+			table.insert(result, newEntry)
+			if edX < sysencoding.len(entry.string) then
+				local s = sysencoding.sub(entry.string, edX + 1)
+				local newEntry = {
+					string = s,
+					styleNames = entry.styleNames,
+					firstCodePoint = entry.firstCodePoint + edX,
+					lastCodePoint = entry.lastCodePoint,
+					firstColumn = entry.firstColumn + edX,
+					lastColumn = entry.lastColumn,
+				}
+				if newEntry.firstCodePoint > entry.lastCodePoint then
+					newEntry.firstCodePoint = entry.lastCodePoint
+				end
+				table.insert(result, newEntry)
+			end
+		end
+	end
+	return result
+end
+
 local Window = makeClass {
 	init = function(self, buffer)
 		self.currentBuffer = buffer
@@ -193,6 +262,10 @@ local Window = makeClass {
 		local cursorY = self._editor._cursorY or 1
 		local cursorViewportX = cursorX - self._scrollX
 		local cursorViewportY = cursorY - self._scrollY
+		local visualBoundaries = nil
+		if self._visualSelection then
+			visualBoundaries = {helpers.getTextObjectEnds(self._editor, helpers.finalizeMotion(self._editor, self._visualSelection))}
+		end
 		for i = 1, height do
 			textrender.setCursorPos(1, i)
 			local lineNr = i + self._scrollY
@@ -206,6 +279,19 @@ local Window = makeClass {
 				local blitData = {nrChunk}
 
 				local psl = self:_getPrintableStyledLine(lineNr)
+				if visualBoundaries and lineNr >= visualBoundaries[2] and lineNr <= visualBoundaries[4] then
+					local begX, edX = 1, 1
+					if #psl > 0 then
+						edX = psl[#psl].lastCodePoint
+					end
+					if lineNr == visualBoundaries[2] then
+						begX = visualBoundaries[1]
+					end
+					if lineNr == visualBoundaries[4] then
+						edX = visualBoundaries[3]
+					end
+					psl = printableStyledAddVisual(psl, begX, edX)
+				end
 				psl = printableStyledToView(psl, self._scrollX, contentWidth)
 				if cursorViewportY == i and cursorViewportX > 0 then
 					psl = printableStyledAddCursor(psl, cursorX)  -- Cursor is bound to codepoints rather than columns, and codepoints are not affected by scrolling
@@ -270,6 +356,9 @@ local Window = makeClass {
 			self.currentBuffer:setScopedLineCache(y, "printableStyled", result)
 		end
 		return result
+	end,
+	setVisualSelection = function(self, toCtx)
+		self._visualSelection = toCtx
 	end,
 }
 

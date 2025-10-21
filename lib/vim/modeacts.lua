@@ -513,6 +513,14 @@ local normalActions = {
 		helpers.updateCursorFromMotionContext(editor, cursorToCtx)
 		helpers.pushModeInsert(editor)
 	end,
+	v = function(editor)
+		helpers.pushModeVisual(editor)
+	end,
+	V = function(editor)
+		local toCtx = helpers.makeMotionContext(editor)
+		toCtx.linewise = true
+		helpers.pushModeVisual(editor, toCtx)
+	end,
 }
 
 normalActions[":q<cr>"] = normalActions.ZQ
@@ -556,6 +564,26 @@ local insertActions = {
 	["<C-r>+"] = function(editor)
 		helpers.expandPaste(editor, {noModeMap = true, noLangMap = true})
 		return false
+	end,
+}
+
+local visualActions = {
+	["<tab>"] = function(editor, toCtx)
+		return true, toCtx
+	end,
+	v = function(editor, toCtx)
+		if toCtx.linewise then
+			toCtx.linewise = false
+			return false, toCtx
+		end
+		return true, toCtx
+	end,
+	V = function(editor, toCtx)
+		if not toCtx.linewise then
+			toCtx.linewise = true
+			return false, toCtx
+		end
+		return true, toCtx
 	end,
 }
 
@@ -708,6 +736,10 @@ local function initialize(modeTries)
 
 	for seq, act in pairs(insertActions) do
 		putAtKeySeq(insert, seq, act)
+	end
+
+	for seq, act in pairs(visualActions) do
+		putAtKeySeq(visual, seq, act)
 	end
 
 	for seq, act in pairs(scrollActions) do
