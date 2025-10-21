@@ -177,11 +177,9 @@ local Window = makeClass {
 		self._editor = editor
 	end,
 	render = function(self)
-		local normalStyle = textrender.interpretStyle(self._editor.styleRegistry:resolveStack({"normal"}))
-		local cursorStyle = textrender.interpretStyle(self._editor.styleRegistry:resolveStack({"normal", "cursor"}))
-		local eobStyle = textrender.interpretStyle(self._editor.styleRegistry:resolveStack({"normal", "endofbuffer"}))
-		local lineNrStyle = textrender.interpretStyle(self._editor.styleRegistry:resolveStack({"normal", "linenr"}))
-		local statusLineStyle = textrender.interpretStyle(self._editor.styleRegistry:resolveStack({"normal", "statusline"}))
+		local eobStyle = self._editor:interpretStyleStack{"normal", "endofbuffer"}
+		local lineNrStyle = self._editor:interpretStyleStack{"normal", "linenr"}
+		local statusLineStyle = self._editor:interpretStyleStack{"normal", "statusline"}
 		local eobChunk = {"~"}
 		itertools.update(eobChunk, eobStyle)
 		local width, height = textrender.getTermSize()
@@ -214,8 +212,7 @@ local Window = makeClass {
 				end
 				for _, entry in ipairs(psl) do
 					local chunk = {entry.string}
-					-- TODO cache
-					local style = textrender.interpretStyle(self._editor.styleRegistry:resolveStack(entry.styleNames))
+					local style = self._editor:interpretStyleStack(entry.styleNames)
 					itertools.update(chunk, style)
 					table.insert(blitData, chunk)
 				end

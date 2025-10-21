@@ -7,6 +7,7 @@ local modeacts = require("vim.modeacts")
 local modes = require("vim.modes")
 local textrender = require("vim.platform.textrender")
 local itertools = require("vim.itertools")
+local Trie = require("vim.trie")
 
 local Editor = makeClass {
 	init = function(self)
@@ -25,6 +26,7 @@ local Editor = makeClass {
 		self._scrollOption = 10
 		self._modeMessage = nil
 		self.typeahead:addPreWaitHandler(function() self:render() end)
+		self._interpretedStyleStacks = Trie()
 	end,
 	isRunning = function(self)
 		return self._running
@@ -94,8 +96,8 @@ local Editor = makeClass {
 			if not mode then
 				mode = ""
 			end
-			local modeMsgStyle = textrender.interpretStyle(self.styleRegistry:resolveStack({"normal", "msgarea", "modemsg"}))
-			local typeaheadStyle = textrender.interpretStyle(self.styleRegistry:resolveStack({"normal", "msgarea"}))
+			local modeMsgStyle = self:interpretStyleStack{"normal", "msgarea", "modemsg"}
+			local typeaheadStyle = self:interpretStyleStack{"normal", "msgarea"}
 			local rightOffset = sysencoding.len(ta)
 			if rightOffset < 11 then
 				rightOffset = 11
@@ -141,6 +143,14 @@ local Editor = makeClass {
 			end
 			textrender.blitAll(blitData)
 		end
+	end,
+	interpretStyleStack = function(self, styleNames)
+		local result = self._interpretedStyleStacks:get(styleNames)
+		if result == nil then
+			result = textrender.interpretStyle(self.styleRegistry:resolveStack(styleNames))
+			self._interpretedStyleStacks:put(styleNames, result)
+		end
+		return result
 	end,
 }
 

@@ -43,6 +43,23 @@ local Trie = makeClass {
 			return nil
 		end
 	end,
+	get = function(self, key)
+		self:getIter({ipairs(key)})
+	end,
+	getIter = function(self, it)
+		local i, e = it[1](it[2], it[3])
+		if i == nil then
+			return self._value
+		else
+			it[3] = i
+			local child = self._next[e]
+			if child == nil then
+				return nil
+			end
+			self._next[e] = child
+			return child:getIter(it, value)
+		end
+	end,
 	consumer = function(self)
 		return self.Consumer.new({self})
 	end,
