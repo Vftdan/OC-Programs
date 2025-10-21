@@ -464,13 +464,6 @@ local normalActions = {
 		helpers.performCursorMotion(editor, helpers.textObjects.characterForward, {onePastEnd = true})
 		helpers.pushModeInsert(editor)
 	end,
-	[":w<cr>"] = function(editor)  -- TODO command-line mode
-		local buf = editor:getCurrentBuffer()
-		if buf == nil then
-			return
-		end
-		buf:write()
-	end,
 	I = function(editor)
 		helpers.performCursorMotion(editor, helpers.textObjects.solNonSpace, {onePastEnd = true})
 		helpers.pushModeInsert(editor)
@@ -525,9 +518,10 @@ local normalActions = {
 		local toCtx = helpers.restoreSelectionMotionContext(editor)
 		helpers.pushModeVisual(editor, toCtx)
 	end,
+	[":"] = function(editor)
+		helpers.pushModeCommandLine(editor)
+	end,
 }
-
-normalActions[":q<cr>"] = normalActions.ZQ
 
 local insertActions = {
 	["<tab>"] = function(editor)
@@ -605,6 +599,53 @@ local visualActions = {
 	end,
 }
 
+local cmdlineActions = {
+	["<tab>"] = function(editor, state)
+		state.finished = true
+		state.text = nil
+	end,
+	["<cr>"] = function(editor, state)
+		state.finished = true
+	end,
+	["<bs>"] = function(editor, state)
+		local x = state.x
+		if x < 2 then
+			if #state.text < 1 then
+				state.text = nil
+				state.finished = true
+			end
+			return
+		end
+		state.text = sysencoding.sub(state.text, 1, x - 2) .. sysencoding.sub(state.text, x)
+		state.x = x - 1
+	end,
+	["<left>"] = function(editor, state)
+		local x = state.x
+		if x < 2 then
+			return
+		end
+		state.x = x - 1
+	end,
+	["<right>"] = function(editor, state)
+		local text = state.text or ""
+		local x = state.x
+		if x > sysencoding.len(text) then
+			return
+		end
+		state.x = x + 1
+	end,
+	["<C-b>"] = function(editor, state)
+		state.x = 1
+	end,
+	["<C-e>"] = function(editor, state)
+		local text = state.text or ""
+		state.x = sysencoding.len(text) + 1
+	end,
+	["<C-r>+"] = function(editor)
+		helpers.expandPaste(editor, {noModeMap = true, noLangMap = true})
+	end,
+}
+
 -- Host client paste aliases (<insert> in OC and <C-v> in CC are used to trigger paste event)
 normalActions["<S-insert>"] = normalActions["@+"]  -- Interpret clipboard data as Vim controls!
 normalActions["<C-S-v>"] = normalActions["@+"]
@@ -614,6 +655,10 @@ insertActions["<S-insert>"] = insertActions["<C-r>+"]  -- Actually paste
 insertActions["<C-S-v>"] = insertActions["<C-r>+"]
 insertActions["<C-r><insert>"] = insertActions["<C-r>+"]
 insertActions["<C-r><C-v>"] = insertActions["<C-r>+"]
+cmdlineActions["<S-cmdline>"] = cmdlineActions["<C-r>+"]
+cmdlineActions["<C-S-v>"] = cmdlineActions["<C-r>+"]
+cmdlineActions["<C-r><cmdline>"] = cmdlineActions["<C-r>+"]
+cmdlineActions["<C-r><C-v>"] = cmdlineActions["<C-r>+"]
 
 local function getOrNewTrie(tbl, name)
 	local val = tbl[name]
@@ -718,6 +763,7 @@ local function initialize(modeTries)
 	local textObject = getOrNewTrie(modeTries, "textObject")  -- a. k. a. operator-pending
 	local select_ = getOrNewTrie(modeTries, "select")
 	local insert = getOrNewTrie(modeTries, "insert")
+	local cmdline = getOrNewTrie(modeTries, "cmdline")
 
 	for seq, op in pairs(simpleOperators) do
 		putAtKeySeq(normal, seq, makeNormalSimpleOperator(op))
@@ -758,6 +804,10 @@ local function initialize(modeTries)
 
 	for seq, act in pairs(visualActions) do
 		putAtKeySeq(visual, seq, act)
+	end
+
+	for seq, act in pairs(cmdlineActions) do
+		putAtKeySeq(cmdline, seq, act)
 	end
 
 	for seq, act in pairs(scrollActions) do

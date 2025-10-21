@@ -108,7 +108,7 @@ local function printableStyledToView(orig, scrollX, contentWidth)
 	return result
 end
 
-local function printableStyledAddCursor(orig, cursorX)
+local function printableStyledAddCursor(orig, cursorX, styleName)
 	local result = {}
 	for _, entry in ipairs(orig) do
 		if cursorX < entry.firstCodePoint or cursorX > entry.lastCodePoint then
@@ -132,7 +132,7 @@ local function printableStyledAddCursor(orig, cursorX)
 			end
 			local s = sysencoding.sub(entry.string, x, x)
 			local styleWithCursor = itertools.collect(ipairs(entry.styleNames))
-			styleWithCursor[#styleWithCursor + 1] = "cursor"
+			styleWithCursor[#styleWithCursor + 1] = styleName
 			local newEntry = {
 				string = s,
 				styleNames = styleWithCursor,
@@ -241,6 +241,7 @@ local Window = makeClass {
 		self.currentBuffer = buffer
 		self._scrollX = 0
 		self._scrollY = 0
+		self._focused = false
 	end,
 	setEditor = function(self, editor)
 		self._editor = editor
@@ -294,7 +295,11 @@ local Window = makeClass {
 				end
 				psl = printableStyledToView(psl, self._scrollX, contentWidth)
 				if cursorViewportY == i and cursorViewportX > 0 then
-					psl = printableStyledAddCursor(psl, cursorX)  -- Cursor is bound to codepoints rather than columns, and codepoints are not affected by scrolling
+					local cursorStyleName = "cursornc"
+					if self._focused then
+						cursorStyleName = "cursor"
+					end
+					psl = printableStyledAddCursor(psl, cursorX, cursorStyleName)  -- Cursor is bound to codepoints rather than columns, and codepoints are not affected by scrolling
 				end
 				for _, entry in ipairs(psl) do
 					local chunk = {entry.string}
@@ -360,6 +365,12 @@ local Window = makeClass {
 	setVisualSelection = function(self, toCtx)
 		self._visualSelection = toCtx
 	end,
+	setFocused = function(self, flag)
+		self._focused = flag
+	end,
+	isFocused = function(self)
+		return self._focused
+	end,
 }
 
 local function withBuffer(buf)
@@ -368,4 +379,9 @@ end
 
 return {
 	withBuffer = withBuffer,
+
+	-- TODO extract to a separate file
+	toPrintableStyled = toPrintableStyled,
+	printableStyledToView = printableStyledToView,
+	printableStyledAddCursor = printableStyledAddCursor,
 }

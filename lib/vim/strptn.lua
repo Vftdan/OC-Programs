@@ -4,6 +4,7 @@ local math = require("math")
 local KEYWORD_PTN = "[%w_\x80-\xff]+"
 local PUNCT_PTN = "[^%s%w_\x80-\xff]+"
 local NONSPACE_PTN = "%S+"
+local SPACE_PTN = "%s+"
 local MAGIC_CHARS = "().%+-*?[^$"
 local MAGIC_CHARS_PTN
 
@@ -209,6 +210,14 @@ local function firstNonSpace(haystack)
 	return i
 end
 
+local function firstSpace(haystack)
+	local i = haystack:find(SPACE_PTN)
+	if not i then
+		return nil
+	end
+	return unitPointIndex(haystack, i)
+end
+
 return {
 	escapePtn = escapePtn,
 	findAll = findAll,
@@ -216,4 +225,5 @@ return {
 	findNonSpaceBoundaries = findNonSpaceBoundaries,
 	matchesGetAdjacent = matchesGetAdjacent,
 	firstNonSpace = firstNonSpace,
+	firstSpace = firstSpace,
 }

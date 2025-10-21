@@ -8,6 +8,7 @@ local modes = require("vim.modes")
 local textrender = require("vim.platform.textrender")
 local itertools = require("vim.itertools")
 local Trie = require("vim.trie")
+local window = require("vim.window")
 
 local Editor = makeClass {
 	init = function(self)
@@ -27,6 +28,9 @@ local Editor = makeClass {
 		self._modeMessage = nil
 		self.typeahead:addPreWaitHandler(function() self:render() end)
 		self._interpretedStyleStacks = Trie()
+		self._cmdlineRunning = false
+		self._cmdlineCursor = nil
+		self._cmdlineMessage = nil
 	end,
 	isRunning = function(self)
 		return self._running
@@ -52,8 +56,16 @@ local Editor = makeClass {
 		return self._activeWinId
 	end,
 	setCurrentWindowId = function(self, id)
+		local win = self:getCurrentWindow()
+		if win then
+			win:setFocused(false)
+		end
 		if id >= 0 and id <= self._windows.n then
 			self._activeWinId = id
+		end
+		win = self:getCurrentWindow()
+		if win then
+			win:setFocused(true)
 		end
 	end,
 	getCurrentWindow = function(self)
@@ -87,6 +99,33 @@ local Editor = makeClass {
 			return
 		end
 		self._windows[1]:render()
+		self:renderMessageArea()
+	end,
+	renderMessageArea = function(self)
+		if self._cmdlineRunning then
+			local s = self._cmdlineMessage or ""
+			local width, height = textrender.getTermSize()
+			local psl = window.toPrintableStyled(s)
+			psl = window.printableStyledToView(psl, 0, width)
+			for _, entry in ipairs(psl) do
+				local newStyle = itertools.collect(ipairs(entry.styleNames))
+				table.insert(newStyle, 2, "msgarea")
+				entry.styleNames = newStyle
+			end
+			if self._cmdlineCursor then
+				psl = window.printableStyledAddCursor(psl, self._cmdlineCursor, "cursor")
+			end
+			local blitData = {}
+			for _, entry in ipairs(psl) do
+				local chunk = {entry.string}
+				local style = self:interpretStyleStack(entry.styleNames)
+				itertools.update(chunk, style)
+				table.insert(blitData, chunk)
+			end
+			textrender.setCursorPos(1, height)
+			textrender.blitAll(blitData)
+			return
+		end
 		local mode = self._modeMessage
 		local ta = self.typeahead:stringifyAll()
 		local renderMode = mode ~= nil
@@ -151,6 +190,22 @@ local Editor = makeClass {
 			self._interpretedStyleStacks:put(styleNames, result)
 		end
 		return result
+	end,
+	setCmdlineRunning = function(self, flag)
+		local win = self:getCurrentWindow()
+		if win then
+			win:setFocused(not flag)
+		end
+		self._cmdlineRunning = flag
+	end,
+	isCmdlineRunning = function(self)
+		return self._running and self._cmdlineRunning
+	end,
+	setCmdlineCursor = function(self, x)
+		self._cmdlineCursor = x
+	end,
+	setCmdlineMessage = function(self, msg)
+		self._cmdlineMessage = msg
 	end,
 }
 

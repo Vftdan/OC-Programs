@@ -3,6 +3,7 @@ local itertools = require("vim.itertools")
 local textrender = require("vim.platform.textrender")
 local strptn = require("vim.strptn")
 local typeahead = require("vim.typeahead")
+local command = require("vim.command")
 local modes
 
 local function appendTextAtBuffer(editor, buf, tbl, x, y)
@@ -382,6 +383,17 @@ local function pullTextObject(editor)
 	return to
 end
 
+local function pushModeCommandLine(editor)
+	if modes == nil then
+		modes = require("vim.modes")
+	end
+	local text = runMode(editor, modes.cmdline, {prompt = ":"})
+	if text then
+		command.execute(editor, text)
+	end
+	editor:render()
+end
+
 local function pushModeInsert(editor)
 	if modes == nil then
 		modes = require("vim.modes")
@@ -676,6 +688,7 @@ return {
 	pullCountString = pullCountString,
 	pullInputCharacter = pullInputCharacter,
 	pullTextObject = pullTextObject,
+	pushModeCommandLine = pushModeCommandLine,
 	pushModeInsert = pushModeInsert,
 	pushModeVisual = pushModeVisual,
 	registerValueFromText = registerValueFromText,
