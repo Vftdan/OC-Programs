@@ -521,6 +521,52 @@ local normalActions = {
 	[":"] = function(editor)
 		helpers.pushModeCommandLine(editor)
 	end,
+	u = function(editor)
+		local buf = editor:getCurrentBuffer()
+		if buf == nil then
+			return
+		end
+		local n = 0
+		for _ = 1, helpers.getRepeatCount1(editor) do
+			if buf:undo() then
+				n = n + 1
+			else
+				break
+			end
+		end
+		if n > 0 then
+			local cursorToCtx = helpers.makeMotionContext(editor)
+			if cursorToCtx then
+				helpers.motionContextIntoBounds(editor, cursorToCtx, opts)  -- TODO expose undo position instead
+				helpers.scrollToMotionContextEnd(editor, cursorToCtx)
+				helpers.updateCursorFromMotionContext(editor, cursorToCtx)
+			end
+			editor:echo(string.format("Undone %d changes", n))
+		end
+	end,
+	["<C-r>"] = function(editor)
+		local buf = editor:getCurrentBuffer()
+		if buf == nil then
+			return
+		end
+		local n = 0
+		for _ = 1, helpers.getRepeatCount1(editor) do
+			if buf:redo() then
+				n = n + 1
+			else
+				break
+			end
+		end
+		if n > 0 then
+			local cursorToCtx = helpers.makeMotionContext(editor)
+			if cursorToCtx then
+				helpers.motionContextIntoBounds(editor, cursorToCtx, opts)  -- TODO expose undo position instead
+				helpers.scrollToMotionContextEnd(editor, cursorToCtx)
+				helpers.updateCursorFromMotionContext(editor, cursorToCtx)
+			end
+			editor:echo(string.format("Redone %d changes", n))
+		end
+	end,
 }
 
 local insertActions = {

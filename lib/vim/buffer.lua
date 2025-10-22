@@ -9,11 +9,23 @@ end
 
 local Buffer = makeClass {
 	init = function(self)
-		self._lines = {}
+		self._lines = {""}
 		self._cacheRoot = {}
+		self._undoList = {{children = {}}, n = 1}
+		self._undoIndex = 1
 	end,
 	setEditor = function(self, editor)
 		self._editor = editor
+	end,
+	_echoInfo = function(self, ...)
+		if self._editor then
+			self._editor:echo(...)
+		end
+	end,
+	_echoError = function(self, ...)
+		if self._editor then
+			self._editor:echoErr(...)
+		end
 	end,
 	getLineCount = function(self)
 		return #self._lines
@@ -58,23 +70,32 @@ local Buffer = makeClass {
 			lines[1] = ""
 			cacheRoot[1] = weakMap()
 		end
+		local oldLines = self._lines
 		self._lines = lines
 		self._cacheRoot = cacheRoot
+
+		local oldStateIndex = self._undoIndex
+		local newStateIndex = self._undoList.n + 1
+		local oldState = self._undoList[oldStateIndex]
+		local childIndex = #oldState.children + 1
+		local newState = {parent = oldStateIndex, parentChild = childIndex, x = 1, y = 1, children = {}}
+		newState.added = itertools.collect(ipairs(self._lines))
+		newState.removed = itertools.collect(ipairs(oldLines))
+		oldState.children[childIndex] = newStateIndex
+		self._undoList[newStateIndex] = newState
+		self._undoList.n = newStateIndex
+		self._undoIndex = newStateIndex
 	end,
 	write = function(self, filename)
 		-- TODO writebackup
 		filename = filename or self._filename
 		if not filename then
-			if self._editor then
-				self._editor:echoErr("No file name")
-			end
+			self:_echoError("No file name")
 			return
 		end
 		local f, reason = io.open(filename, "w")
 		if f == nil then
-			if self._editor then
-				self._editor:echoErr("Failed to open:", reason)
-			end
+			self:_echoError("Failed to open:", reason)
 			return
 		end
 		local success = true
@@ -88,21 +109,15 @@ local Buffer = makeClass {
 			end
 		end
 		if not success then
-			if self._editor then
-				self._editor:echoErr("Error while writing:", reason)
-			end
+			self:_echoError("Error while writing:", reason)
 			return
 		end
 		success, reason = pcall(f.close, f)
 		if not success then
-			if self._editor then
-				self._editor:echoErr("Error while closing:", reason)
-			end
+			self:_echoError("Error while closing:", reason)
 			return
 		end
-		if self._editor then
-			self._editor:echo(string.format("%q %dL written", filename, numLines))
-		end
+		self._echoInfo(string.format("%q %dL written", filename, numLines))
 	end,
 	--- Copies characterwise lines or their parts into an array
 	-- Both beginning and ending characters are included
@@ -137,18 +152,36 @@ local Buffer = makeClass {
 		end
 		return result
 	end,
+	setTextBetween = function(self, txt, begX, begY, edX, edY)
+		local oldTxt = self:getTextBetween(begX, begY, edX, edY)
+		self:_setTextBetweenImpl(txt, begX, begY, edX, edY)
+		txt = itertools.collect(ipairs(txt))
+
+		local oldStateIndex = self._undoIndex
+		local newStateIndex = self._undoList.n + 1
+		local oldState = self._undoList[oldStateIndex]
+		local childIndex = #oldState.children + 1
+		local newState = {parent = oldStateIndex, parentChild = childIndex, x = begX, y = begY, children = {}}
+		newState.added = itertools.collect(ipairs(txt))
+		newState.removed = itertools.collect(ipairs(oldTxt))
+		oldState.children[childIndex] = newStateIndex
+		self._undoList[newStateIndex] = newState
+		self._undoList.n = newStateIndex
+		self._undoIndex = newStateIndex
+	end,
 	--- Deletes and pastes characterwise lines or their parts from an array
 	-- Both beginning and ending characters are deleted
 	-- If the ending is exactly one character before and in the same line as the beginning,
 	-- nothing will be deleted
 	-- If the ending is further before the beginning, nothing will be done
 	-- @param txt a non-empty array of strings
-	setTextBetween = function(self, txt, begX, begY, edX, edY)
+	_setTextBetweenImpl = function(self, txt, begX, begY, edX, edY)
 		if edY < begY or edY == begY and edX + 1 < begX then
 			print(begX, begY, edX, edY)
 			error()
 			return
 		end
+		local oldTxt = {}
 		local begLine = self._lines[begY] or ""
 		local edLine = self._lines[edY] or ""
 		local prefix, suffix
@@ -182,6 +215,53 @@ local Buffer = makeClass {
 	end,
 	getFilename = function(self)
 		return self._filename
+	end,
+	undo = function(self)
+		local state = self._undoList[self._undoIndex]
+		local parentIndex = state.parent
+		if not parentIndex then
+			self:_echoInfo("Already at oldest change")
+			return false
+		end
+		local parent = self._undoList[parentIndex]
+		if not parent then
+			self:_echoInfo("Already at oldest change (maximum undo depth reached)")
+			return false
+		end
+		parent.redoIndex = state.parentChild
+		local begX, begY = state.x, state.y
+		local delLength = #state.added
+		local edY = begY + delLength - 1
+		local edX = sysencoding.len(state.added[delLength])
+		if begY == edY then
+			edX = begX + edX - 1
+		end
+		self:_setTextBetweenImpl(state.removed, begX, begY, edX, edY)
+		self._undoIndex = parentIndex
+		return true
+	end,
+	redo = function(self)
+		local parent = self._undoList[self._undoIndex]
+		local stateIndex = parent.children[parent.redoIndex or #parent.children]
+		if not stateIndex then
+			self:_echoInfo("Already at newest change")
+			return false
+		end
+		local state = self._undoList[stateIndex]
+		if not state then
+			self:_echoInfo("Already at newest change (redo state deleted?)")
+			return false
+		end
+		local begX, begY = state.x, state.y
+		local delLength = #state.removed
+		local edY = begY + delLength - 1
+		local edX = sysencoding.len(state.removed[delLength])
+		if begY == edY then
+			edX = begX + edX - 1
+		end
+		self:_setTextBetweenImpl(state.added, begX, begY, edX, edY)
+		self._undoIndex = stateIndex
+		return true
 	end,
 }
 
