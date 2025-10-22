@@ -217,6 +217,8 @@ local Typeahead = makeClass {
 		self._preWaitHandlers = {}
 		self._activeModifiers = {}
 		self._prefixedModifiers = {}
+		self._unaccountedPaste = false
+		self._lastAppended = nil
 	end,
 	getLength = function(self)
 		return #self._queue
@@ -233,12 +235,16 @@ local Typeahead = makeClass {
 			itertools.update(update, kwargs.update)
 		end
 		charname = keyseq.normalizeKey(charname, keyNormalisation, modifierOrder)
-		table.insert(self._queue, index, {
+		local item = {
 			name = charname,
 			update = update,
 			noModeMap = kwargs.noModeMap or false,
 			noLangMap = kwargs.noLangMap or false,  -- should it be separate from mode mapping?
-		})
+		}
+		if index == #self._queue + 1 then
+			self._lastAppended = item
+		end
+		table.insert(self._queue, index, item)
 	end,
 	pull = function(self)
 		local item = table.remove(self._queue, 1)
@@ -366,9 +372,11 @@ local Typeahead = makeClass {
 	end,
 	yieldCPU = function(self)
 		local ev = events.pullNativeTimeout(0.05)
-		if ev then
-			self:_handleNativeEvent(ev)
+		if not ev then
+			return false
 		end
+		self:_handleNativeEvent(ev)
+		return true
 	end,
 	getLatestModifiers = function(self, resetPrefixed)
 		local result = {}
@@ -393,12 +401,14 @@ local Typeahead = makeClass {
 		itertools.update(self._scheduledPropertyUpdate, update)
 	end,
 	_handleNativeEvent = function(self, ev)
+		local unaccountedPaste = self._unaccountedPaste
 		if events.isInterrupt(ev) then
 			error("Interrupted")
 		end
 		local flag, data
 		flag, data = events.isKeyPressOrChar(ev)
 		if flag then
+			self._unaccountedPaste = false
 			-- when ctrl is actually held, printable keys are handled by scancode, otherwise by text
 			local ctrlHeld = false
 			for modCode, modHeld in pairs(self._activeModifiers) do
@@ -462,6 +472,7 @@ local Typeahead = makeClass {
 		end
 		flag, data = events.isMouseDown(ev)
 		if flag then
+			self._unaccountedPaste = false
 			local buttonName = data.button and events.mouseButtonNames[data.button]
 			local translatedKey = buttonName and mouseNamesMap[buttonName]
 			local mods = self:getLatestModifiers(true)
@@ -477,6 +488,7 @@ local Typeahead = makeClass {
 		end
 		flag, data = events.isMouseScroll(ev)
 		if flag then
+			self._unaccountedPaste = false
 			local mods = self:getLatestModifiers(true)
 			if data.dy ~= 0 then
 				local absAmount = data.dy
@@ -506,9 +518,24 @@ local Typeahead = makeClass {
 		end
 		flag, data = events.isPaste(ev)
 		if flag then
-			self:schedulePropertyUpdate({pasteData = data.text})
 			if data.consumedEvent then
 				self:_handleNativeEvent(data.consumedEvent)
+				unaccountedPaste = self._unaccountedPaste
+			end
+			self._unaccountedPaste = true
+			local lastKey = self._lastAppended
+			if unaccountedPaste and lastKey then
+				-- Repeated pastes without keys inbetween repeat the last key
+				self:insert(lastKey.name, {update = {pasteData = data.text}, noModeMap = lastKey.noModeMap, noLangMap = lastKey.noLangMap})
+			else
+				local len = self:getLength()
+				if len > 0 then
+					-- Update paste data when the currently last key is pulled
+					lastKey.update.pasteData = data.text
+				else
+					-- It may be not too late to update the currently active properties
+					self.inputProperties.pasteData = data.text
+				end
 			end
 			return
 		end

@@ -51,6 +51,12 @@ end
 
 local function expandPaste(editor, opts)
 	opts = opts or {}
+	while editor.typeahead:getLength() < 1 do
+		-- Let immediate paste events arrive
+		if not editor.typeahead:yieldCPU() then
+			break
+		end
+	end
 	local str = editor.typeahead.inputProperties.pasteData or ""
 	for i = 1, sysencoding.len(str) do
 		local ch = sysencoding.sub(str, i, i)
