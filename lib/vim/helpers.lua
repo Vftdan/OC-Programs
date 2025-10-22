@@ -62,7 +62,7 @@ local function expandPaste(editor, opts)
 		if ch == "\n" or ch == "\r" then
 			ch = "cr"
 		end
-		editor.typeahead:insert(ch, {index = i, noModeMap = opts.noModeMap, noLangMap = opts.noLangMap, update = opts.update})
+		editor.typeahead:insert(ch, {index = i, noModeMap = opts.noModeMap, noLangMap = opts.noLangMap, update = opts.update, synthetic = true})
 	end
 end
 

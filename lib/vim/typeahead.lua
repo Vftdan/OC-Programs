@@ -241,8 +241,9 @@ local Typeahead = makeClass {
 			update = update,
 			noModeMap = kwargs.noModeMap or false,
 			noLangMap = kwargs.noLangMap or false,  -- should it be separate from mode mapping?
+			synthetic = kwargs.synthetic or false,
 		}
-		if index == #self._queue + 1 then
+		if index == #self._queue + 1 and not kwargs.synthetic then
 			self._lastAppended = item
 		end
 		table.insert(self._queue, index, item)
@@ -535,7 +536,7 @@ local Typeahead = makeClass {
 			local lastKey = self._lastAppended
 			if unaccountedPaste and lastKey then
 				-- Repeated pastes without keys inbetween repeat the last key
-				self:insert(lastKey.name, {update = {pasteData = data.text}, noModeMap = lastKey.noModeMap, noLangMap = lastKey.noLangMap})
+				self:insert(lastKey.name, {update = {pasteData = data.text}, noModeMap = lastKey.noModeMap, noLangMap = lastKey.noLangMap, synthetic = true})
 			else
 				local len = self:getLength()
 				if len > 0 then
