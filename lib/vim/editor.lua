@@ -40,6 +40,7 @@ local Editor = makeClass {
 		self.typeahead:terminate()
 	end,
 	registerBuffer = function(self, buf)
+		buf:setEditor(self)
 		local n = self._buffers.n + 1
 		self._buffers[n] = buf
 		self._buffers.n = n
@@ -206,6 +207,53 @@ local Editor = makeClass {
 	end,
 	setCmdlineMessage = function(self, msg)
 		self._cmdlineMessage = msg
+	end,
+	echoStyled = function(self, psl)
+		local width, height = textrender.getTermSize()
+		psl = window.printableStyledToView(psl, 0, width)
+		for _, entry in ipairs(psl) do
+			local newStyle = itertools.collect(ipairs(entry.styleNames))
+			local i = 1
+			if #newStyle and newStyle[1]:lower() == "normal" then
+				i = 2
+			end
+			table.insert(newStyle, i, "msgarea")
+			entry.styleNames = newStyle
+		end
+		local blitData = {}
+		for _, entry in ipairs(psl) do
+			local chunk = {entry.string}
+			local style = self:interpretStyleStack(entry.styleNames)
+			itertools.update(chunk, style)
+			table.insert(blitData, chunk)
+		end
+		textrender.setCursorPos(1, height)
+		textrender.blitAll(blitData)
+	end,
+	echo = function(self, ...)
+		local args = table.pack(...)
+		local builder = {}
+		for i = 1, args.n do
+			builder[i] = tostring(args[i])
+		end
+		local s = table.concat(builder, " ")
+		local psl = window.toPrintableStyled(s)
+		self:echoStyled(psl)
+	end,
+	echoErr = function(self, ...)
+		local args = table.pack(...)
+		local builder = {}
+		for i = 1, args.n do
+			builder[i] = tostring(args[i])
+		end
+		local s = table.concat(builder, " ")
+		local psl = window.toPrintableStyled(s)
+		for _, entry in ipairs(psl) do
+			local newStyle = itertools.collect(ipairs(entry.styleNames))
+			table.insert(newStyle, 2, "errormsg")
+			entry.styleNames = newStyle
+		end
+		self:echoStyled(psl)
 	end,
 }
 

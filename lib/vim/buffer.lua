@@ -12,6 +12,9 @@ local Buffer = makeClass {
 		self._lines = {}
 		self._cacheRoot = {}
 	end,
+	setEditor = function(self, editor)
+		self._editor = editor
+	end,
 	getLineCount = function(self)
 		return #self._lines
 	end,
@@ -62,17 +65,44 @@ local Buffer = makeClass {
 		-- TODO writebackup
 		filename = filename or self._filename
 		if not filename then
+			if self._editor then
+				self._editor:echoErr("No file name")
+			end
 			return
 		end
-		local f = io.open(filename or self._filename, "w")
+		local f, reason = io.open(filename, "w")
 		if f == nil then
+			if self._editor then
+				self._editor:echoErr("Failed to open:", reason)
+			end
 			return
 		end
-		f:write(self:getLine(1))
-		for i = 2, self:getLineCount() do
-			f:write("\n" .. self:getLine(i))
+		local success = true
+		local numLines = self:getLineCount()
+		success, reason = pcall(f.write, f, self:getLine(1))
+		for i = 2, numLines do
+			if success then
+				success, reason = pcall(f.write, f, "\n" .. self:getLine(i))
+			else
+				break
+			end
 		end
-		f:close()
+		if not success then
+			if self._editor then
+				self._editor:echoErr("Error while writing:", reason)
+			end
+			return
+		end
+		success, reason = pcall(f.close, f)
+		if not success then
+			if self._editor then
+				self._editor:echoErr("Error while closing:", reason)
+			end
+			return
+		end
+		if self._editor then
+			self._editor:echo(string.format("%q %dL written", filename, numLines))
+		end
 	end,
 	--- Copies characterwise lines or their parts into an array
 	-- Both beginning and ending characters are included

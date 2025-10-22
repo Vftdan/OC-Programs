@@ -2,6 +2,7 @@ local mapping = {
 	normal = {ctermbg = 0, ctermfg = 15, guibg = 0x000000, guifg = 0xFFFFFF},
 	cursor = {reverse = true},
 	error = {ctermbg = 9, ctermfg = 15, guibg = 0xFF0000, guifg = 0xFFFFFF},
+	errormsg = {ctermbg = 1, ctermfg = 15, guibg = 0xFF0000, guifg = 0xFFFFFF},
 	todo = {ctermbg = 11, ctermfg = 0, guibg = 0xFFFF00, guifg = 0x0000FF},
 	statement = {ctermfg = 11, guifg = 0xFFFF60},
 	preproc = {ctermfg = 13, guifg = 0xFF80FF},

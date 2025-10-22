@@ -45,6 +45,8 @@ local function execute(editor, cmdStr)
 	local commandFun = commands[cmdName]
 	if commandFun then
 		commandFun(editor, argStr)
+	else
+		editor:echoErr("Not an editor command:", cmdName)
 	end
 end
 
