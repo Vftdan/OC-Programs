@@ -219,6 +219,7 @@ local Typeahead = makeClass {
 		self._prefixedModifiers = {}
 		self._unaccountedPaste = false
 		self._lastAppended = nil
+		self._lastWasKeypress = false
 	end,
 	getLength = function(self)
 		return #self._queue
@@ -274,6 +275,9 @@ local Typeahead = makeClass {
 			return nil
 		end
 		return item.name
+	end,
+	wasLastKeypress = function(self)
+		return self._lastWasKeypress
 	end,
 	setModeMappings = function(self, trie)
 		self._modeMappings = trie
@@ -409,6 +413,7 @@ local Typeahead = makeClass {
 		flag, data = events.isKeyPressOrChar(ev)
 		if flag then
 			self._unaccountedPaste = false
+			self._lastWasKeypress = true
 			-- when ctrl is actually held, printable keys are handled by scancode, otherwise by text
 			local ctrlHeld = false
 			for modCode, modHeld in pairs(self._activeModifiers) do
@@ -462,6 +467,7 @@ local Typeahead = makeClass {
 			flag, data = events.isKeyUp(ev)
 		end
 		if flag then
+			self._lastWasKeypress = false
 			local s = data.scanCode
 			local translatedMod = modifierNames[s]
 			if translatedMod ~= nil then
@@ -473,6 +479,7 @@ local Typeahead = makeClass {
 		flag, data = events.isMouseDown(ev)
 		if flag then
 			self._unaccountedPaste = false
+			self._lastWasKeypress = false
 			local buttonName = data.button and events.mouseButtonNames[data.button]
 			local translatedKey = buttonName and mouseNamesMap[buttonName]
 			local mods = self:getLatestModifiers(true)
@@ -489,6 +496,7 @@ local Typeahead = makeClass {
 		flag, data = events.isMouseScroll(ev)
 		if flag then
 			self._unaccountedPaste = false
+			self._lastWasKeypress = false
 			local mods = self:getLatestModifiers(true)
 			if data.dy ~= 0 then
 				local absAmount = data.dy
@@ -523,6 +531,7 @@ local Typeahead = makeClass {
 				unaccountedPaste = self._unaccountedPaste
 			end
 			self._unaccountedPaste = true
+			self._lastWasKeypress = false
 			local lastKey = self._lastAppended
 			if unaccountedPaste and lastKey then
 				-- Repeated pastes without keys inbetween repeat the last key

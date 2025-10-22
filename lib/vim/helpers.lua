@@ -51,12 +51,10 @@ end
 
 local function expandPaste(editor, opts)
 	opts = opts or {}
-	while editor.typeahead:getLength() < 1 do
+	while editor.typeahead:getLength() < 1 and editor.typeahead:wasLastKeypress() do
+		-- TODO try to find a cleaner solution
 		-- Let immediate paste events arrive
-		-- FIXME this is not enough waiting, they are likely in separate client packets
-		if not editor.typeahead:yieldCPU() then
-			break
-		end
+		editor.typeahead:yieldCPU()
 	end
 	local str = editor.typeahead.inputProperties.pasteData or ""
 	for i = 1, sysencoding.len(str) do
