@@ -117,7 +117,7 @@ local Buffer = makeClass {
 			self:_echoError("Error while closing:", reason)
 			return
 		end
-		self._echoInfo(string.format("%q %dL written", filename, numLines))
+		self:_echoInfo(string.format("%q %dL written", filename, numLines))
 	end,
 	--- Copies characterwise lines or their parts into an array
 	-- Both beginning and ending characters are included

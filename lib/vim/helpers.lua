@@ -53,6 +53,7 @@ local function expandPaste(editor, opts)
 	opts = opts or {}
 	while editor.typeahead:getLength() < 1 do
 		-- Let immediate paste events arrive
+		-- FIXME this is not enough waiting, they are likely in separate client packets
 		if not editor.typeahead:yieldCPU() then
 			break
 		end
