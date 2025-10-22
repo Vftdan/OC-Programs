@@ -54,6 +54,9 @@ local function expandPaste(editor, opts)
 	local str = editor.typeahead.inputProperties.pasteData or ""
 	for i = 1, sysencoding.len(str) do
 		local ch = sysencoding.sub(str, i, i)
+		if ch == "\n" or ch == "\r" then
+			ch = "cr"
+		end
 		editor.typeahead:insert(ch, {index = i, noModeMap = opts.noModeMap, noLangMap = opts.noLangMap, update = opts.update})
 	end
 end
