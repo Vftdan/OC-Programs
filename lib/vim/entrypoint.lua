@@ -27,7 +27,7 @@ local function runInitCommands(editor, preRcCommands, postRcCommands, rcFile, go
 			end
 		end
 	end
-	for _, cmd in ipairs(preRcCommands) do
+	for _, cmd in ipairs(postRcCommands) do
 		command.execute(editor, cmd)
 		if not editor:isRunning() then
 			return
