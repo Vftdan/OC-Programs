@@ -99,25 +99,14 @@ local function findCharacterInLine(editor, ch, toCtx, opts)
 	return m[1]
 end
 
+local getLineSearchMatches
+
 local function findSearchStringInLine(editor, searchString, toCtx, opts)
 	opts = opts or {}
 	toCtx = toCtx or makeMotionContext(editor)
-	local buf = editor:getCurrentBuffer()
-	if not buf then
+	local matches = getLineSearchMatches(editor, searchString, toCtx.y)
+	if not matches then
 		return nil
-	end
-	local line = buf:getLine(toCtx.y)
-	if not line then
-		return nil
-	end
-	local matches, cached
-	cached = buf:getScopedLineCache(toCtx.y, "searchResult")
-	if not cached or cached.searchString ~= searchString then
-		matches = strptn.findAll(line, searchString, {pattern = true})
-		cached = {matches = matches, searchString = searchString}
-		buf:setScopedLineCache(toCtx.y, "searchResult", cached)
-	else
-		matches = cached.matches
 	end
 	local key = 1
 	if opts.patternEnd then
@@ -192,6 +181,28 @@ local function findWordInLine(editor, toCtx, opts)
 		return nil, remainingCount
 	end
 	return m[key]
+end
+
+function getLineSearchMatches(editor, searchString, y)
+	local buf = editor:getCurrentBuffer()
+	if not buf then
+		return nil
+	end
+	local line = buf:getLine(y)
+	if not line then
+		return nil
+	end
+	local matches, cached
+	cached = buf:getScopedLineCache(y, "searchResult")
+	if not cached or cached.searchString ~= searchString then
+		-- print("Find", searchString, "in", line); os.sleep(0.2)
+		matches = strptn.findAll(line, searchString, {pattern = true})
+		cached = {matches = matches, searchString = searchString}
+		buf:setScopedLineCache(y, "searchResult", cached)
+	else
+		matches = cached.matches
+	end
+	return matches
 end
 
 local function getRegisterValueText(editor, regValue)
@@ -813,9 +824,11 @@ textObjects = {
 		return toCtx
 	end},
 	searchNext = {{exclusive = true}, function(editor, toCtx)
+		editor.hlsearch = true
 		return performSearchMotion(editor, toCtx, {previous = false})
 	end},
 	searchPrevious = {{exclusive = true}, function(editor, toCtx)
+		editor.hlsearch = true
 		return performSearchMotion(editor, toCtx, {previous = true})
 	end},
 }
@@ -833,6 +846,7 @@ return {
 	findSearchStringInLine = findSearchStringInLine,
 	findSurroundingWordInLine = findSurroundingWordInLine,
 	findWordInLine = findWordInLine,
+	getLineSearchMatches = getLineSearchMatches,
 	getRegisterValueText = getRegisterValueText,
 	getRepeatCount0 = getRepeatCount0,
 	getRepeatCount1 = getRepeatCount1,

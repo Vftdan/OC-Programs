@@ -16,10 +16,14 @@ local commands = {
 	quit = function(editor, argStr)
 		editor:terminate()
 	end,
+	nohlsearch = function(editor, argStr)
+		editor.hlsearch = false
+	end,
 }
 
 commands.w = commands.write
 commands.q = commands.quit
+commands.nohl = commands.nohlsearch
 
 local function execute(editor, cmdStr)
 	local nonBlankPos = strptn.firstNonSpace(cmdStr)

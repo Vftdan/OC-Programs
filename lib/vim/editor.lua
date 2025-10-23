@@ -31,6 +31,7 @@ local Editor = makeClass {
 		self._cmdlineRunning = false
 		self._cmdlineCursor = nil
 		self._cmdlineMessage = nil
+		self.hlsearch = false
 	end,
 	isRunning = function(self)
 		return self._running

@@ -108,67 +108,7 @@ local function printableStyledToView(orig, scrollX, contentWidth)
 	return result
 end
 
-local function printableStyledAddCursor(orig, cursorX, styleName)
-	local result = {}
-	for _, entry in ipairs(orig) do
-		if cursorX < entry.firstCodePoint or cursorX > entry.lastCodePoint then
-			table.insert(result, entry)
-		else
-			local x = cursorX - entry.firstCodePoint + 1
-			if x > 1 then
-				local s = sysencoding.sub(entry.string, 1, x - 1)
-				local newEntry = {
-					string = s,
-					styleNames = entry.styleNames,
-					firstCodePoint = entry.firstCodePoint,
-					lastCodePoint = entry.firstCodePoint + x - 2,
-					firstColumn = entry.firstColumn,
-					lastColumn = entry.firstColumn + x - 2,
-				}
-				if newEntry.lastCodePoint > entry.lastCodePoint then
-					newEntry.lastCodePoint = entry.lastCodePoint
-				end
-				table.insert(result, newEntry)
-			end
-			local s = sysencoding.sub(entry.string, x, x)
-			local styleWithCursor = itertools.collect(ipairs(entry.styleNames))
-			styleWithCursor[#styleWithCursor + 1] = styleName
-			local newEntry = {
-				string = s,
-				styleNames = styleWithCursor,
-				firstCodePoint = entry.firstCodePoint + x - 1,
-				lastCodePoint = entry.firstCodePoint + x - 1,
-				firstColumn = entry.firstColumn + x - 1,  -- = cursorX
-				lastColumn = entry.firstColumn + x - 1,
-			}
-			if newEntry.firstCodePoint > entry.lastCodePoint then
-				newEntry.firstCodePoint = entry.lastCodePoint
-			end
-			if newEntry.lastCodePoint > entry.lastCodePoint then
-				newEntry.lastCodePoint = entry.lastCodePoint
-			end
-			table.insert(result, newEntry)
-			if x < sysencoding.len(entry.string) then
-				local s = sysencoding.sub(entry.string, x + 1)
-				local newEntry = {
-					string = s,
-					styleNames = entry.styleNames,
-					firstCodePoint = entry.firstCodePoint + x,
-					lastCodePoint = entry.lastCodePoint,
-					firstColumn = entry.firstColumn + x,
-					lastColumn = entry.lastColumn,
-				}
-				if newEntry.firstCodePoint > entry.lastCodePoint then
-					newEntry.firstCodePoint = entry.lastCodePoint
-				end
-				table.insert(result, newEntry)
-			end
-		end
-	end
-	return result
-end
-
-local function printableStyledAddVisual(orig, lineBegX, lineEdX)
+local function printableStyledAddHighlight(orig, lineBegX, lineEdX, styleName)
 	local result = {}
 	for _, entry in ipairs(orig) do
 		if lineEdX < entry.firstCodePoint or lineBegX > entry.lastCodePoint then
@@ -200,7 +140,7 @@ local function printableStyledAddVisual(orig, lineBegX, lineEdX)
 			end
 			local s = sysencoding.sub(entry.string, begX, edX)
 			local styleWithVisual = itertools.collect(ipairs(entry.styleNames))
-			styleWithVisual[#styleWithVisual + 1] = "visual"
+			styleWithVisual[#styleWithVisual + 1] = styleName
 			local newEntry = {
 				string = s,
 				styleNames = styleWithVisual,
@@ -236,6 +176,21 @@ local function printableStyledAddVisual(orig, lineBegX, lineEdX)
 	return result
 end
 
+local function printableStyledAddVisual(orig, lineBegX, lineEdX)
+	return printableStyledAddHighlight(orig, lineBegX, lineEdX, "visual")
+end
+
+local function printableStyledAddCursor(orig, cursorX, styleName)
+	return printableStyledAddHighlight(orig, cursorX, cursorX, styleName)
+end
+
+local function printableStyledAddHlsearch(orig, matches)
+	for _, m in ipairs(matches) do
+		orig = printableStyledAddHighlight(orig, m[1], m[2], "search")
+	end
+	return orig
+end
+
 local Window = makeClass {
 	init = function(self, buffer)
 		self.currentBuffer = buffer
@@ -267,6 +222,10 @@ local Window = makeClass {
 		if self._visualSelection then
 			visualBoundaries = {helpers.getTextObjectEnds(self._editor, helpers.finalizeMotion(self._editor, self._visualSelection))}
 		end
+		local searchString = nil
+		if self._editor.hlsearch then
+			searchString = helpers.getSearchString(self._editor)
+		end
 		for i = 1, height do
 			textrender.setCursorPos(1, i)
 			local lineNr = i + self._scrollY
@@ -280,6 +239,12 @@ local Window = makeClass {
 				local blitData = {nrChunk}
 
 				local psl = self:_getPrintableStyledLine(lineNr)
+				if searchString then
+					local matches = helpers.getLineSearchMatches(self._editor, searchString, lineNr)
+					if matches then
+						psl = printableStyledAddHlsearch(psl, matches)
+					end
+				end
 				if visualBoundaries and lineNr >= visualBoundaries[2] and lineNr <= visualBoundaries[4] then
 					local begX, edX = 1, 1
 					if #psl > 0 then

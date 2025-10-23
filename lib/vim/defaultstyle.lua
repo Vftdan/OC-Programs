@@ -14,6 +14,7 @@ local mapping = {
 	nontext = {ctermfg = 12, guifg = 0x0000FF},
 	linenr = {ctermfg = 11, guifg = 0xFFFF00},
 	statusline = {reverse = true},
+	search = {ctermbg = 11, ctermfg=0, guifg=0x000000, guibg=0xFFFF00},
 }
 
 return {
