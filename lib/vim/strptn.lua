@@ -210,6 +210,45 @@ local function matchesGetAdjacent(matches, target, key, opts)
 	return matches[guess], 0
 end
 
+local function matchesGetContainingIndex(matches, target)
+	local lower = 1
+	local higher = #matches
+	if higher < 1 then
+		return 0
+	end
+	if matches[lower][1] > target then
+		return 0
+	end
+	if matches[higher][2] < target then
+		return higher + 1
+	end
+	local guess = math.floor((lower + higher) / 2)
+	while lower < higher do
+		local m = matches[guess]
+		local beginsNotAfter = m[1] <= target
+		local endsNotBefore = m[2] >= target
+		if beginsNotAfter and endsNotBefore then
+			break
+		end
+		if beginsNotAfter then
+			if lower == guess then
+				lower = lower + 1
+			else
+				lower = guess
+			end
+			guess = math.ceil((guess + higher) / 2)
+		else
+			if higher == guess then
+				higher = higher - 1
+			else
+				higher = guess
+			end
+			guess = math.floor((guess + lower) / 2)
+		end
+	end
+	return guess
+end
+
 local function firstNonSpace(haystack)
 	local i = haystack:find(NONSPACE_PTN)
 	return i
@@ -230,6 +269,7 @@ return {
 	findWordBoundaries = findWordBoundaries,
 	findNonSpaceBoundaries = findNonSpaceBoundaries,
 	matchesGetAdjacent = matchesGetAdjacent,
+	matchesGetContainingIndex = matchesGetContainingIndex,
 	firstNonSpace = firstNonSpace,
 	firstSpace = firstSpace,
 }

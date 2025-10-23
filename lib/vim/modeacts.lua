@@ -341,6 +341,49 @@ local simpleNonprintMotions = {
 	["<end>"] = simpleMotions["$"],
 }
 
+local textObjectMotions = {
+	["iw"] = {{exclusive = false, linewise = false}, function(editor, toCtx)
+		-- TODO count
+		local backward = toCtx.y < toCtx.initialY or toCtx.y == toCtx.initialY and toCtx.x < toCtx.initialX
+		local m = helpers.findSurroundingWordInLine(editor, toCtx, {WORDs = false})
+		if not m then
+			return toCtx
+		end
+		if backward then
+			toCtx.x = m[1]
+			if toCtx.y == toCtx.initialY and toCtx.initialX < m[2] then
+				toCtx.initialX = m[2]
+			end
+		else
+			toCtx.x = m[2]
+			if toCtx.y == toCtx.initialY and toCtx.initialX > m[1] then
+				toCtx.initialX = m[1]
+			end
+		end
+		return toCtx
+	end},
+	["iW"] = {{exclusive = false, linewise = false}, function(editor, toCtx)
+		-- TODO count
+		local backward = toCtx.y < toCtx.initialY or toCtx.y == toCtx.initialY and toCtx.x < toCtx.initialX
+		local m = helpers.findSurroundingWordInLine(editor, toCtx, {WORDs = true})
+		if not m then
+			return toCtx
+		end
+		if backward then
+			toCtx.x = m[1]
+			if toCtx.y == toCtx.initialY and toCtx.initialX < m[2] then
+				toCtx.initialX = m[2]
+			end
+		else
+			toCtx.x = m[2]
+			if toCtx.y == toCtx.initialY and toCtx.initialX > m[1] then
+				toCtx.initialX = m[1]
+			end
+		end
+		return toCtx
+	end},
+}
+
 local scrollActions = {  -- similar to motions, but don't exist in operator-pending mode
 	["<C-y>"] = function(editor, opts)
 		helpers.scrollBy(editor, 0, -helpers.getRepeatCount1(editor), opts)
@@ -864,6 +907,11 @@ local function initialize(modeTries)
 		putAtKeySeq(textObject, seq, makeOperatorPendingMotion(mot))
 		putAtKeySeq(select_, seq, visMot)
 		putAtKeySeq(insert, seq, makeInsertMotion(mot))
+	end
+
+	for seq, mot in pairs(textObjectMotions) do
+		putAtKeySeq(visual, seq, makeVisualMotion(mot))
+		putAtKeySeq(textObject, seq, makeOperatorPendingMotion(mot))
 	end
 
 	for seq, act in pairs(normalActions) do

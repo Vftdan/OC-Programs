@@ -130,6 +130,34 @@ local function findSearchStringInLine(editor, searchString, toCtx, opts)
 	return m[key]
 end
 
+local function findSurroundingWordInLine(editor, toCtx, opts)
+	opts = opts or {}
+	toCtx = toCtx or makeMotionContext(editor)
+	local buf = editor:getCurrentBuffer()
+	if not buf then
+		return nil
+	end
+	local line = buf:getLine(toCtx.y)
+	if not line then
+		return nil
+	end
+	local matches
+	if opts.WORDs then
+		matches = buf:getScopedLineCache(toCtx.y, "WORDs")
+		if not matches then
+			matches = strptn.findNonSpaceBoundaries(line)
+			buf:setScopedLineCache(toCtx.y, "WORDs", matches)
+		end
+	else
+		matches = buf:getScopedLineCache(toCtx.y, "words")
+		if not matches then
+			matches = strptn.findWordBoundaries(line)
+			buf:setScopedLineCache(toCtx.y, "words", matches)
+		end
+	end
+	return matches[strptn.matchesGetContainingIndex(matches, toCtx.x)]
+end
+
 local function findWordInLine(editor, toCtx, opts)
 	opts = opts or {}
 	toCtx = toCtx or makeMotionContext(editor)
@@ -803,6 +831,7 @@ return {
 	finalizeMotion = finalizeMotion,
 	findCharacterInLine = findCharacterInLine,
 	findSearchStringInLine = findSearchStringInLine,
+	findSurroundingWordInLine = findSurroundingWordInLine,
 	findWordInLine = findWordInLine,
 	getRegisterValueText = getRegisterValueText,
 	getRepeatCount0 = getRepeatCount0,
