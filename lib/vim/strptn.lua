@@ -81,7 +81,7 @@ local function findAll(haystack, needle, opts)
 			break
 		end
 		table.insert(result, m)
-		if opts.overlap then
+		if opts.overlap or m[1] > m[2] then
 			start = m[1] + 1
 		else
 			start = m[2] + 1

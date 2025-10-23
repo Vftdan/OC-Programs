@@ -186,7 +186,11 @@ end
 
 local function printableStyledAddHlsearch(orig, matches)
 	for _, m in ipairs(matches) do
-		orig = printableStyledAddHighlight(orig, m[1], m[2], "search")
+		local lineBegX, lineEdX = m[1], m[2]
+		if lineEdX < lineBegX then
+			lineEdX = lineBegX
+		end
+		orig = printableStyledAddHighlight(orig, lineBegX, lineEdX, "search")
 	end
 	return orig
 end
