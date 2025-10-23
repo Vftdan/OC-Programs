@@ -24,6 +24,11 @@ local function escapePtn(s)
 	return s:gsub(MAGIC_CHARS_PTN, prependPercent)
 end
 
+local function validatePtn(ptn)
+	local success = pcall(string.find, "", ptn)
+	return success
+end
+
 local function byteLengthBetween(s, i, j)
 	return #sysencoding.sub(s, i, j)
 end
@@ -220,6 +225,7 @@ end
 
 return {
 	escapePtn = escapePtn,
+	validatePtn = validatePtn,
 	findAll = findAll,
 	findWordBoundaries = findWordBoundaries,
 	findNonSpaceBoundaries = findNonSpaceBoundaries,

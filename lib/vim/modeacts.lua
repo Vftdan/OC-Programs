@@ -310,6 +310,26 @@ simpleMotions = {
 		toCtx.wantX = nil
 		return toCtx
 	end},
+	["/"] = {{exclusive = true}, function(editor, toCtx)
+		local searchString = helpers.pullSearchString(editor, false)
+		if not searchString then
+			return toCtx
+		end
+		helpers.setSearchString(editor, searchString)
+		helpers.setSearchBackward(editor, false)
+		return helpers.performSearchMotion(editor, toCtx)
+	end},
+	["?"] = {{exclusive = true}, function(editor, toCtx)
+		local searchString = helpers.pullSearchString(editor, true)
+		if not searchString then
+			return toCtx
+		end
+		helpers.setSearchString(editor, searchString)
+		helpers.setSearchBackward(editor, true)
+		return helpers.performSearchMotion(editor, toCtx)
+	end},
+	n = helpers.textObjects.searchNext,
+	N = helpers.textObjects.searchPrevious,
 }
 
 local simpleNonprintMotions = {
@@ -687,8 +707,14 @@ local cmdlineActions = {
 		local text = state.text or ""
 		state.x = sysencoding.len(text) + 1
 	end,
-	["<C-r>+"] = function(editor)
+	["<C-r>+"] = function(editor, state)
 		helpers.expandPaste(editor, {noModeMap = true, noLangMap = true})
+	end,
+	["<C-r>/"] = function(editor, state)
+		local x = state.x
+		local searchString = helpers.getSearchString(editor)
+		state.text = sysencoding.sub(state.text, 1, x - 1) .. searchString .. sysencoding.sub(state.text, x)
+		state.x = x + sysencoding.len(searchString)
 	end,
 }
 

@@ -99,6 +99,37 @@ local function findCharacterInLine(editor, ch, toCtx, opts)
 	return m[1]
 end
 
+local function findSearchStringInLine(editor, searchString, toCtx, opts)
+	opts = opts or {}
+	toCtx = toCtx or makeMotionContext(editor)
+	local buf = editor:getCurrentBuffer()
+	if not buf then
+		return nil
+	end
+	local line = buf:getLine(toCtx.y)
+	if not line then
+		return nil
+	end
+	local matches, cached
+	cached = buf:getScopedLineCache(toCtx.y, "searchResult")
+	if not cached or cached.searchString ~= searchString then
+		matches = strptn.findAll(line, searchString, {pattern = true})
+		cached = {matches = matches, searchString = searchString}
+		buf:setScopedLineCache(toCtx.y, "searchResult", cached)
+	else
+		matches = cached.matches
+	end
+	local key = 1
+	if opts.patternEnd then
+		key = 2
+	end
+	local m, remainingCount = strptn.matchesGetAdjacent(matches, toCtx.x, key, {backward = opts.backward or false, count = opts.count or 1})
+	if not m then
+		return nil, remainingCount
+	end
+	return m[key]
+end
+
 local function findWordInLine(editor, toCtx, opts)
 	opts = opts or {}
 	toCtx = toCtx or makeMotionContext(editor)
@@ -149,6 +180,16 @@ local function getRepeatCount1(editor)
 		return 1
 	end
 	return num
+end
+
+local function getSearchBackward(editor)
+	-- TODO better interface
+	return editor._searchBackward or false
+end
+
+local function getSearchString(editor)
+	-- TODO better interface
+	return editor._searchString or ""
 end
 
 local function getSelectedRegister(editor)
@@ -317,6 +358,48 @@ local function performCursorMotion(editor, toDef, opts)
 	return true
 end
 
+local function performSearchMotion(editor, toCtx, opts)
+	opts = opts or {}
+	local origX, origY = toCtx.x, toCtx.y
+	local buf = editor:getCurrentBuffer()
+	if buf == nil then
+		return
+	end
+	local lineCount = buf:getLineCount()
+	local repeatCount = getRepeatCount1(editor)
+	local newX
+	local yieldCounter = 0
+	local searchString = getSearchString(editor)
+	local backward = getSearchBackward(editor)
+	if opts.previous then
+		backward = not backward
+	end
+	while editor:isRunning() and toCtx.y >= 1 and toCtx.y <= lineCount do
+		newX, repeatCount = findSearchStringInLine(editor, searchString, toCtx, {backward = backward, patternEnd = opts.patternEnd, count = repeatCount})
+		if newX then
+			toCtx.x = newX
+			toCtx.wantX = nil
+			return toCtx
+		end
+		if backward then
+			toCtx.y = toCtx.y - 1
+			toCtx.x = sysencoding.len(buf:getLine(toCtx.y) or "") + 1
+		else
+			toCtx.y = toCtx.y + 1
+			toCtx.x = 0
+		end
+		yieldCounter = yieldCounter + 1
+		if yieldCounter > 10 then
+			yieldCounter = 0
+			editor.typeahead:yieldCPU()
+		end
+	end
+	local boundaryName = backward and "TOP" or "BOTTOM"
+	editor:echoErr(("Search hit %s without match for: %s"):format(boundaryName, searchString))
+	toCtx.x, toCtx.y = origX, origY
+	return toCtx
+end
+
 local function performWordMotion(editor, toCtx, opts)
 	opts = opts or {}
 	local origX, origY = toCtx.x, toCtx.y
@@ -382,6 +465,29 @@ local function pullInputCharacter(editor)
 end
 
 local runMode
+
+local function pullSearchString(editor, backward)
+	if modes == nil then
+		modes = require("vim.modes")
+	end
+	local prompt = "/"
+	if backward then
+		prompt = "?"
+	end
+	local searchString = runMode(editor, modes.cmdline, {prompt = prompt})
+	if not searchString then
+		return nil
+	end
+	if searchString:sub(1, 2) == "\\V" or searchString:sub(1, 2) == "\\M" then
+		-- nomagic
+		searchString = strptn.escapePtn(searchString:sub(3))
+	end
+	if not strptn.validatePtn(searchString) then
+		editor:echoErr("Invalid search string:", searchString)
+		return nil
+	end
+	return searchString
+end
 
 local function pullTextObject(editor)
 	if modes == nil then
@@ -536,6 +642,16 @@ local function setRepeatCount(editor, num)
 	editor._repeatCount = num
 end
 
+local function setSearchBackward(editor, backward)
+	-- TODO better interface
+	editor._searchBackward = backward
+end
+
+local function setSearchString(editor, searchString)
+	-- TODO better interface
+	editor._searchString = searchString
+end
+
 local function setSelectedRegister(editor, regValue, opts)
 	-- TODO registers
 	editor._unnamedRegister = regValue
@@ -668,6 +784,12 @@ textObjects = {
 		end
 		return toCtx
 	end},
+	searchNext = {{exclusive = true}, function(editor, toCtx)
+		return performSearchMotion(editor, toCtx, {previous = false})
+	end},
+	searchPrevious = {{exclusive = true}, function(editor, toCtx)
+		return performSearchMotion(editor, toCtx, {previous = true})
+	end},
 }
 
 return {
@@ -680,10 +802,13 @@ return {
 	expandPaste = expandPaste,
 	finalizeMotion = finalizeMotion,
 	findCharacterInLine = findCharacterInLine,
+	findSearchStringInLine = findSearchStringInLine,
 	findWordInLine = findWordInLine,
 	getRegisterValueText = getRegisterValueText,
 	getRepeatCount0 = getRepeatCount0,
 	getRepeatCount1 = getRepeatCount1,
+	getSearchBackward = getSearchBackward,
+	getSearchString = getSearchString,
 	getSelectedRegister = getSelectedRegister,
 	getTextObjectAsRegister = getTextObjectAsRegister,
 	getTextObjectEnds = getTextObjectEnds,
@@ -692,9 +817,11 @@ return {
 	makeMotionContext = makeMotionContext,
 	motionContextIntoBounds = motionContextIntoBounds,
 	performCursorMotion = performCursorMotion,
+	performSearchMotion = performSearchMotion,
 	performWordMotion = performWordMotion,
 	pullCountString = pullCountString,
 	pullInputCharacter = pullInputCharacter,
+	pullSearchString = pullSearchString,
 	pullTextObject = pullTextObject,
 	pushModeCommandLine = pushModeCommandLine,
 	pushModeInsert = pushModeInsert,
@@ -706,6 +833,8 @@ return {
 	scrollToMotionContextEnd = scrollToMotionContextEnd,
 	setLastSelection = setLastSelection,
 	setRepeatCount = setRepeatCount,
+	setSearchBackward = setSearchBackward,
+	setSearchString = setSearchString,
 	setSelectedRegister = setSelectedRegister,
 	setTextObjectAsRegister = setTextObjectAsRegister,
 	textObjects = textObjects,
