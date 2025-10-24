@@ -90,6 +90,7 @@ local function main(...)
 				argumentsEnded = true
 			elseif opt == "--version" then
 				print("vim implementation by vftdan, indev")
+				return
 			elseif opt == "-h" or opt == "--help" then
 				print(usageString)
 				return
