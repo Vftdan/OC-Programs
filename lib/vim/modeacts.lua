@@ -817,6 +817,45 @@ local cmdlineActions = {
 		state.text = safeencoding.sub(state.text, 1, x - 1) .. searchString .. safeencoding.sub(state.text, x)
 		state.x = x + safeencoding.len(searchString)
 	end,
+	["<C-v>x"] = function(editor, state)
+		local charCode = 0
+		for _ = 1, 2 do
+			local nibbleNum = helpers.pullHexDigit(editor)
+			if not nibbleNum then
+				return
+			end
+			charCode = charCode * 16 + nibbleNum
+		end
+		ch = string.char(charCode)
+		if ch == "\n" then
+			return
+		end
+
+		local x = state.x
+		state.text = safeencoding.sub(state.text, 1, x - 1) .. ch .. safeencoding.sub(state.text, x)
+		state.x = x + safeencoding.len(ch)
+	end,
+	["<C-v>u"] = function(editor)
+		local charCode = 0
+		for _ = 1, 4 do
+			local nibbleNum = helpers.pullHexDigit(editor)
+			if not nibbleNum then
+				return
+			end
+			charCode = charCode * 16 + nibbleNum
+		end
+		ch = sysencoding.fromCodePoint(charCode)
+		if not ch then
+			return
+		end
+		if ch == "\n" then
+			return
+		end
+
+		local x = state.x
+		state.text = safeencoding.sub(state.text, 1, x - 1) .. ch .. safeencoding.sub(state.text, x)
+		state.x = x + safeencoding.len(ch)
+	end,
 }
 
 -- Host client paste aliases (<insert> in OC and <C-v> in CC are used to trigger paste event)
