@@ -1,5 +1,5 @@
 local strptn = require("vim.strptn")
-local sysencoding = require("vim.platform.sysencoding")
+local safeencoding = require("vim.safeencoding")
 
 local commands = {
 	write = function(editor, argStr)
@@ -30,17 +30,17 @@ local function execute(editor, cmdStr)
 	if not nonBlankPos then
 		return
 	end
-	cmdStr = sysencoding.sub(cmdStr, nonBlankPos)
+	cmdStr = safeencoding.sub(cmdStr, nonBlankPos)
 	local argSepPos = strptn.firstSpace(cmdStr)
 	local cmdName, argStr
 	if argSepPos then
-		cmdName = sysencoding.sub(cmdStr, 1, argSepPos - 1)
-		argStr = sysencoding.sub(cmdStr, argSepPos)
+		cmdName = safeencoding.sub(cmdStr, 1, argSepPos - 1)
+		argStr = safeencoding.sub(cmdStr, argSepPos)
 		nonBlankPos = strptn.firstNonSpace(argStr)
 		if not nonBlankPos then
 			argStr = ""
 		else
-			argStr = sysencoding.sub(argStr, nonBlankPos)
+			argStr = safeencoding.sub(argStr, nonBlankPos)
 		end
 	else
 		cmdName = cmdStr

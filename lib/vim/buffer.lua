@@ -1,5 +1,5 @@
 local makeClass = require("vim.makeclass")
-local sysencoding = require("vim.platform.sysencoding")
+local safeencoding = require("vim.safeencoding")
 local itertools = require("vim.itertools")
 
 local weakMapMeta = {__mode = "k"}
@@ -139,12 +139,12 @@ local Buffer = makeClass {
 					if edX < 1 then
 						line = ""
 					else
-						line = sysencoding.sub(line, 1, edX)
+						line = safeencoding.sub(line, 1, edX)
 					end
 				end
 				if i == begY then
 					if begX >= 1 then
-						line = sysencoding.sub(line, begX)
+						line = safeencoding.sub(line, begX)
 					end
 				end
 				table.insert(result, line)
@@ -186,12 +186,12 @@ local Buffer = makeClass {
 		local edLine = self._lines[edY] or ""
 		local prefix, suffix
 		if begX > 1 then
-			prefix = sysencoding.sub(begLine, 1, begX - 1)
+			prefix = safeencoding.sub(begLine, 1, begX - 1)
 		else
 			prefix = ""
 		end
 		if edX > 0 then
-			suffix = sysencoding.sub(edLine, edX + 1)
+			suffix = safeencoding.sub(edLine, edX + 1)
 		else
 			suffix = edLine
 		end
@@ -232,7 +232,7 @@ local Buffer = makeClass {
 		local begX, begY = state.x, state.y
 		local delLength = #state.added
 		local edY = begY + delLength - 1
-		local edX = sysencoding.len(state.added[delLength])
+		local edX = safeencoding.len(state.added[delLength])
 		if begY == edY then
 			edX = begX + edX - 1
 		end
@@ -255,7 +255,7 @@ local Buffer = makeClass {
 		local begX, begY = state.x, state.y
 		local delLength = #state.removed
 		local edY = begY + delLength - 1
-		local edX = sysencoding.len(state.removed[delLength])
+		local edX = safeencoding.len(state.removed[delLength])
 		if begY == edY then
 			edX = begX + edX - 1
 		end

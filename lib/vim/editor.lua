@@ -2,7 +2,7 @@ local makeClass = require("vim.makeclass")
 local typeahead = require("vim.typeahead")
 local style = require("vim.style")
 local helpers = require("vim.helpers")
-local sysencoding = require("vim.platform.sysencoding")
+local safeencoding = require("vim.safeencoding")
 local modeacts = require("vim.modeacts")
 local modes = require("vim.modes")
 local textrender = require("vim.platform.textrender")
@@ -141,7 +141,7 @@ local Editor = makeClass {
 			end
 			local modeMsgStyle = self:interpretStyleStack{"normal", "msgarea", "modemsg"}
 			local typeaheadStyle = self:interpretStyleStack{"normal", "msgarea"}
-			local rightOffset = sysencoding.len(ta)
+			local rightOffset = safeencoding.len(ta)
 			if rightOffset < 11 then
 				rightOffset = 11
 			end
@@ -152,14 +152,14 @@ local Editor = makeClass {
 			end
 			local oldTypeaheadStart = self._oldTypeaheadStart or width - 11
 			self._oldTypeaheadStart = taStart
-			ta = sysencoding.sub(ta, 1, width - taStart + 1)
-			mode = sysencoding.sub(mode, 1, taStart - 1)
-			local sepLength = taStart - 1 - sysencoding.len(mode)
+			ta = safeencoding.sub(ta, 1, width - taStart + 1)
+			mode = safeencoding.sub(mode, 1, taStart - 1)
+			local sepLength = taStart - 1 - safeencoding.len(mode)
 			local sep = ""
 			if sepLength > 0 then
 				sep = itertools.repeatString(" ", sepLength)
 			end
-			local rightPadLength = width - taStart + 1 - sysencoding.len(ta)
+			local rightPadLength = width - taStart + 1 - safeencoding.len(ta)
 			local rightPad = ""
 			if rightPadLength > 0 then
 				rightPad = itertools.repeatString(" ", rightPadLength)

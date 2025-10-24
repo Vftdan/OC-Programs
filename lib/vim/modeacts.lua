@@ -1,6 +1,6 @@
 local helpers = require("vim.helpers")
 local Trie = require("vim.trie")
-local sysencoding = require("vim.platform.sysencoding")
+local safeencoding = require("vim.safeencoding")
 local itertools = require("vim.itertools")
 local keyseq = require("vim.keyseq")
 local typeahead = require("vim.typeahead")
@@ -55,7 +55,7 @@ local pasteOperator = function(editor, to)
 			to.x = 0
 		else  -- "p"
 			local line = buf:getLine(to.y)
-			local lineLen = sysencoding.len(line)
+			local lineLen = safeencoding.len(line)
 			to.initialX = lineLen + 1
 			to.x = lineLen
 		end
@@ -92,7 +92,7 @@ local impendingOperators = {  -- don't trigger operator-pending mode when used f
 		local oldTxt = helpers.getRegisterValueText(editor, regValue)
 		local newTxt = {}
 		for i, oldLine in ipairs(oldTxt) do
-			local lineLen = sysencoding.len(oldLine)
+			local lineLen = safeencoding.len(oldLine)
 			newTxt[i] = itertools.repeatString(ch, lineLen)
 		end
 		regValue = helpers.registerValueFromText(editor, newTxt, regValue)
@@ -128,7 +128,7 @@ simpleMotions = {
 		    toCtx.y = numLines
 		end
 		local line = buf:getLine(toCtx.y)
-		local lineLength = sysencoding.len(line)
+		local lineLength = safeencoding.len(line)
 		if toCtx.x > lineLength + 1 then
 		    toCtx.x = lineLength + 1
 		end
@@ -152,7 +152,7 @@ simpleMotions = {
 			toCtx.y = 1
 		end
 		local line = buf:getLine(toCtx.y)
-		local lineLength = sysencoding.len(line)
+		local lineLength = safeencoding.len(line)
 		if toCtx.x > lineLength + 1 then
 		    toCtx.x = lineLength + 1
 		end
@@ -287,7 +287,7 @@ simpleMotions = {
 		toCtx.y = helpers.getRepeatCount1(editor)
 		helpers.motionContextIntoBounds(editor, toCtx)
 		local line = buf:getLine(toCtx.y)
-		toCtx.x = strptn.firstNonSpace(line) or sysencoding.len(line) + 1
+		toCtx.x = strptn.firstNonSpace(line) or safeencoding.len(line) + 1
 		toCtx.wantX = nil
 		return toCtx
 	end},
@@ -306,7 +306,7 @@ simpleMotions = {
 		toCtx.y = n
 		helpers.motionContextIntoBounds(editor, toCtx)
 		local line = buf:getLine(toCtx.y)
-		toCtx.x = strptn.firstNonSpace(line) or sysencoding.len(line) + 1
+		toCtx.x = strptn.firstNonSpace(line) or safeencoding.len(line) + 1
 		toCtx.wantX = nil
 		return toCtx
 	end},
@@ -548,8 +548,8 @@ local normalActions = {
 		end
 		local cursorToCtx = helpers.makeMotionContext(editor)
 		local line = buf:getLine(cursorToCtx.y)
-		local indentLen = (strptn.firstNonSpace(line) or sysencoding.len(line) + 1) - 1
-		local indent = sysencoding.sub(line, 1, indentLen)
+		local indentLen = (strptn.firstNonSpace(line) or safeencoding.len(line) + 1) - 1
+		local indent = safeencoding.sub(line, 1, indentLen)
 		helpers.performCursorMotion(editor, helpers.textObjects.eol, {onePastEnd = true})
 		helpers.insertTextAtCursor(editor, {"", indent})
 		helpers.pushModeInsert(editor)
@@ -561,8 +561,8 @@ local normalActions = {
 		end
 		local cursorToCtx = helpers.makeMotionContext(editor)
 		local line = buf:getLine(cursorToCtx.y)
-		local indentLen = (strptn.firstNonSpace(line) or sysencoding.len(line) + 1) - 1
-		local indent = sysencoding.sub(line, 1, indentLen)
+		local indentLen = (strptn.firstNonSpace(line) or safeencoding.len(line) + 1) - 1
+		local indent = safeencoding.sub(line, 1, indentLen)
 		helpers.performCursorMotion(editor, helpers.textObjects.sol)
 		helpers.insertTextAtCursor(editor, {indent, ""})
 		cursorToCtx = helpers.makeMotionContext(editor)
@@ -661,7 +661,7 @@ local insertActions = {
 				return true
 			end
 			local line = buf:getLine(toCtx.y)
-			toCtx.x = sysencoding.len(line) + 1
+			toCtx.x = safeencoding.len(line) + 1
 		else
 			return false
 		end
@@ -727,7 +727,7 @@ local cmdlineActions = {
 			end
 			return
 		end
-		state.text = sysencoding.sub(state.text, 1, x - 2) .. sysencoding.sub(state.text, x)
+		state.text = safeencoding.sub(state.text, 1, x - 2) .. safeencoding.sub(state.text, x)
 		state.x = x - 1
 	end,
 	["<left>"] = function(editor, state)
@@ -740,7 +740,7 @@ local cmdlineActions = {
 	["<right>"] = function(editor, state)
 		local text = state.text or ""
 		local x = state.x
-		if x > sysencoding.len(text) then
+		if x > safeencoding.len(text) then
 			return
 		end
 		state.x = x + 1
@@ -752,7 +752,7 @@ local cmdlineActions = {
 		state.history[state.historyPos] = state.text
 		state.historyPos = state.historyPos - 1
 		state.text = state.history[state.historyPos]
-		state.x = sysencoding.len(state.text) + 1
+		state.x = safeencoding.len(state.text) + 1
 	end,
 	["<S-down>"] = function(editor, state)
 		if state.historyPos >= #state.history then
@@ -761,14 +761,14 @@ local cmdlineActions = {
 		state.history[state.historyPos] = state.text
 		state.historyPos = state.historyPos + 1
 		state.text = state.history[state.historyPos]
-		state.x = sysencoding.len(state.text) + 1
+		state.x = safeencoding.len(state.text) + 1
 	end,
 	["<C-b>"] = function(editor, state)
 		state.x = 1
 	end,
 	["<C-e>"] = function(editor, state)
 		local text = state.text or ""
-		state.x = sysencoding.len(text) + 1
+		state.x = safeencoding.len(text) + 1
 	end,
 	["<C-r>+"] = function(editor, state)
 		helpers.expandPaste(editor, {noModeMap = true, noLangMap = true})
@@ -776,8 +776,8 @@ local cmdlineActions = {
 	["<C-r>/"] = function(editor, state)
 		local x = state.x
 		local searchString = helpers.getSearchString(editor)
-		state.text = sysencoding.sub(state.text, 1, x - 1) .. searchString .. sysencoding.sub(state.text, x)
-		state.x = x + sysencoding.len(searchString)
+		state.text = safeencoding.sub(state.text, 1, x - 1) .. searchString .. safeencoding.sub(state.text, x)
+		state.x = x + safeencoding.len(searchString)
 	end,
 }
 

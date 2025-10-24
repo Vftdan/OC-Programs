@@ -60,6 +60,17 @@ local function enumerate(itNext, state, ...)
 	end, state, index
 end
 
+local function mapIterator(f, itNext, state, ...)
+	local index = {...}
+	return function(...)
+		index = {itNext(state, table.unpack(index))}
+		if index[1] ~= nil then
+			return f(table.unpack(index))
+		end
+		return nil
+	end, state, index
+end
+
 local function reversedIpairsIter(lst, i)
 	i = i - 1
 	if i < 1 then
@@ -94,6 +105,7 @@ return {
 	collect = collect,
 	update = update,
 	enumerate = enumerate,
+	mapIterator = mapIterator,
 	reversedIpairs = reversedIpairs,
 	repeatString = repeatString,
 }

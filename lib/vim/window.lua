@@ -1,5 +1,5 @@
 local textrender = require("vim.platform.textrender")
-local sysencoding = require("vim.platform.sysencoding")
+local safeencoding = require("vim.safeencoding")
 local itertools = require("vim.itertools")
 local makeClass = require("vim.makeclass")
 local strptn = require("vim.strptn")
@@ -8,16 +8,18 @@ local helpers = require("vim.helpers")
 local TABSTOP = 8
 
 local function toPrintableStyled(line)
-	-- TODO non-printable
 	local tabPositions = strptn.findAll(line, "\t")
+	local invalidPositions = safeencoding.findAllInvalidCodePoints(line)
+	local controlPositions = strptn.findAll(line, "[%z\x01-\x08\x0b-\x1f]", {pattern = true})
+	local mergedPositions = strptn.matchesMerge({tab = tabPositions, inv = invalidPositions, ctl = controlPositions}, 1, "kind")
 	local result = {}
 	local adjustment = 0
 	local start = 1
-	local lineLen = sysencoding.len(line)
-	for _, m in ipairs(tabPositions) do
+	local lineLen = safeencoding.len(line)
+	for _, m in ipairs(mergedPositions) do
 		if start < m[1] then
 			table.insert(result, {
-				string = sysencoding.sub(line, start, m[1] - 1),
+				string = safeencoding.sub(line, start, m[1] - 1),
 				styleNames = {"normal"},
 				firstCodePoint = start,
 				lastCodePoint = m[1] - 1,
@@ -26,9 +28,17 @@ local function toPrintableStyled(line)
 			})
 		end
 		local startCol = m[1] + adjustment
-		local width = TABSTOP - ((startCol - 1) % TABSTOP)
+		local width
+		if m.kind == "tab" then
+			width = TABSTOP - ((startCol - 1) % TABSTOP)
+			rep = itertools.repeatString("-", width - 1) .. ">"
+		else
+			local value = safeencoding.sub(line, m[1], m[2]):byte()
+			rep = ("<%02x>"):format(value)
+			width = safeencoding.len(rep)
+		end
 		table.insert(result, {
-			string = itertools.repeatString("-", width - 1) .. ">",
+			string = rep,
 			styleNames = {"normal", "nontext"},
 			firstCodePoint = m[1],
 			lastCodePoint = m[2],
@@ -40,7 +50,7 @@ local function toPrintableStyled(line)
 	end
 	if start <= lineLen then
 		table.insert(result, {
-			string = sysencoding.sub(line, start),
+			string = safeencoding.sub(line, start),
 			styleNames = {"normal"},
 			firstCodePoint = start,
 			lastCodePoint = lineLen,
@@ -58,7 +68,7 @@ local function printableStyledToView(orig, scrollX, contentWidth)
 	for _, entry in ipairs(orig) do
 		if entry.lastColumn >= firstCol and entry.firstColumn <= lastCol then
 			if entry.lastColumn > lastCol then
-				local s = sysencoding.sub(entry.string, 1, lastCol - entry.firstColumn + 1)
+				local s = safeencoding.sub(entry.string, 1, lastCol - entry.firstColumn + 1)
 				entry = {
 					string = s,
 					styleNames = entry.styleNames,
@@ -70,7 +80,7 @@ local function printableStyledToView(orig, scrollX, contentWidth)
 			end
 			if entry.firstColumn < firstCol then
 				local amount = firstCol - entry.firstColumn
-				local s = sysencoding.sub(entry.string, amount + 1)
+				local s = safeencoding.sub(entry.string, amount + 1)
 				entry = {
 					string = s,
 					styleNames = entry.styleNames,
@@ -124,7 +134,7 @@ local function printableStyledAddHighlight(orig, lineBegX, lineEdX, styleName)
 				edX = entryLength
 			end
 			if begX > 1 then
-				local s = sysencoding.sub(entry.string, 1, begX - 1)
+				local s = safeencoding.sub(entry.string, 1, begX - 1)
 				local newEntry = {
 					string = s,
 					styleNames = entry.styleNames,
@@ -138,7 +148,7 @@ local function printableStyledAddHighlight(orig, lineBegX, lineEdX, styleName)
 				end
 				table.insert(result, newEntry)
 			end
-			local s = sysencoding.sub(entry.string, begX, edX)
+			local s = safeencoding.sub(entry.string, begX, edX)
 			local styleWithVisual = itertools.collect(ipairs(entry.styleNames))
 			styleWithVisual[#styleWithVisual + 1] = styleName
 			local newEntry = {
@@ -156,8 +166,8 @@ local function printableStyledAddHighlight(orig, lineBegX, lineEdX, styleName)
 				newEntry.lastCodePoint = entry.lastCodePoint
 			end
 			table.insert(result, newEntry)
-			if edX < sysencoding.len(entry.string) then
-				local s = sysencoding.sub(entry.string, edX + 1)
+			if edX < safeencoding.len(entry.string) then
+				local s = safeencoding.sub(entry.string, edX + 1)
 				local newEntry = {
 					string = s,
 					styleNames = entry.styleNames,
@@ -215,7 +225,7 @@ local Window = makeClass {
 		height = height - 1  -- MsgArea is not managed by the window
 		eobChunk[1] = eobChunk[1] .. itertools.repeatString(" ", width - 1)
 		local n = self.currentBuffer:getLineCount()
-		local maxNrDigits = sysencoding.len(tostring(n))
+		local maxNrDigits = safeencoding.len(tostring(n))
 		local contentWidth = width - maxNrDigits - 1
 		local contentHeight = height - 1  -- Reserve status line space
 		local cursorX = self._editor._cursorX or 1
@@ -235,7 +245,7 @@ local Window = makeClass {
 			local lineNr = i + self._scrollY
 			if lineNr <= n then
 				local nrString = tostring(lineNr)
-				while sysencoding.len(nrString) < maxNrDigits do
+				while safeencoding.len(nrString) < maxNrDigits do
 					nrString = " " .. nrString
 				end
 				local nrChunk = {nrString .. " "}
@@ -288,8 +298,8 @@ local Window = makeClass {
 		-- Status line
 		textrender.setCursorPos(1, height)
 		local filename = self.currentBuffer:getFilename()
-		filename = sysencoding.sub(filename, 1, width)
-		local remainingLength = width - sysencoding.len(filename)
+		filename = safeencoding.sub(filename, 1, width)
+		local remainingLength = width - safeencoding.len(filename)
 		local rightPad = ""
 		if remainingLength > 0 then
 			rightPad = itertools.repeatString(" ", remainingLength)
@@ -306,7 +316,7 @@ local Window = makeClass {
 		local maxNrDigits = 0
 		if self.currentBuffer then
 			local n = self.currentBuffer:getLineCount()
-			maxNrDigits = sysencoding.len(tostring(n))
+			maxNrDigits = safeencoding.len(tostring(n))
 		end
 		local contentWidth = width - maxNrDigits - 1
 		local contentHeight = height - 1  -- Reserve status line space

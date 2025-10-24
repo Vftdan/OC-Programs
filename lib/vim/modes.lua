@@ -1,6 +1,6 @@
 local helpers = require("vim.helpers")
 local typeahead = require("vim.typeahead")
-local sysencoding = require("vim.platform.sysencoding")
+local safeencoding = require("vim.safeencoding")
 local itertools = require("vim.itertools")
 
 local function normalModeSingle(editor)
@@ -285,10 +285,10 @@ end
 local cmdline = function(editor, opts)
 	opts = opts or {}
 	local prompt = opts.prompt or ""
-	local promptLength = sysencoding.len(prompt)
+	local promptLength = safeencoding.len(prompt)
 	local state = {text = opts.text or "", finished = false, history = itertools.collect(ipairs(opts.history or {}))}
 	local lastText = state.text
-	state.x = sysencoding.len(state.text) + 1
+	state.x = safeencoding.len(state.text) + 1
 	table.insert(state.history, state.text)
 	state.historyPos = #state.history
 	editor:setCmdlineRunning(true)
@@ -338,8 +338,8 @@ local cmdline = function(editor, opts)
 			else
 				local ch = helpers.pullInputCharacter(editor)
 				if ch ~= nil then
-					state.text = sysencoding.sub(state.text, 1, state.x - 1) .. ch .. sysencoding.sub(state.text, state.x)
-					state.x = state.x + sysencoding.len(ch)
+					state.text = safeencoding.sub(state.text, 1, state.x - 1) .. ch .. safeencoding.sub(state.text, state.x)
+					state.x = state.x + safeencoding.len(ch)
 				end
 			end
 			lastText = state.text or lastText

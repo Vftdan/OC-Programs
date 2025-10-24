@@ -45,8 +45,20 @@ local function codePointAt(str, index)
 	return code
 end
 
+-- Drop the second return value
+local function len(s)
+	local n = unicode.len(s)
+	return n
+end
+
+local function firstInvalidByte(s)
+	local _, n = unicode.len(s)
+	return n
+end
+
 return {
-	len = unicode.len,
+	len = len,
+	firstInvalidByte = firstInvalidByte,
 	fromCodePoint = unicode.char,
 	codePointAt = codePointAt,
 	upper = unicode.upper,

@@ -1,4 +1,4 @@
-local sysencoding = require("vim.platform.sysencoding")
+local safeencoding = require("vim.safeencoding")
 local itertools = require("vim.itertools")
 local textrender = require("vim.platform.textrender")
 local strptn = require("vim.strptn")
@@ -11,7 +11,7 @@ local function appendTextAtBuffer(editor, buf, tbl, x, y)
 		return
 	end
 	local oldLine = buf:getLine(y)
-	local oldLineLen = sysencoding.len(oldLine)
+	local oldLineLen = safeencoding.len(oldLine)
 	if x < 0 then
 		x = 0
 	elseif x > oldLineLen then
@@ -57,8 +57,8 @@ local function expandPaste(editor, opts)
 		editor.typeahead:yieldCPU()
 	end
 	local str = editor.typeahead.inputProperties.pasteData or ""
-	for i = 1, sysencoding.len(str) do
-		local ch = sysencoding.sub(str, i, i)
+	for i = 1, safeencoding.len(str) do
+		local ch = safeencoding.sub(str, i, i)
 		if ch == "\n" or ch == "\r" then
 			ch = "cr"
 		end
@@ -293,7 +293,7 @@ function getTextObjectEnds(editor, to)
 	end
 	local edLine = buf:getLine(edY)
 	if afterEOB then
-		edX = sysencoding.len(edLine)
+		edX = safeencoding.len(edLine)
 		if to.exclusive then
 			edX = edX + 1
 		end
@@ -302,12 +302,12 @@ function getTextObjectEnds(editor, to)
 		if edY >= lineCount then
 			if begY <= 1 then
 				-- whole buffer
-				return 1, 1, sysencoding.len(edLine), edY
+				return 1, 1, safeencoding.len(edLine), edY
 			end
 			begY = begY - 1
 			local begLine = buf:getLine(begY)
-			begX = sysencoding.len(begLine) + 1
-			edX = sysencoding.len(edLine)
+			begX = safeencoding.len(begLine) + 1
+			edX = safeencoding.len(edLine)
 		else
 			begX = 1
 			edY = edY + 1
@@ -331,10 +331,10 @@ local function insertTextAtCursor(editor, txt)
 	local fakeRegValue = registerValueFromText(editor, txt)
 	setTextObjectAsRegister(editor, cursorTo, fakeRegValue)
 	if #txt == 1 then
-		cursorToCtx.x = cursorToCtx.x + sysencoding.len(txt[1])
+		cursorToCtx.x = cursorToCtx.x + safeencoding.len(txt[1])
 	else
 		cursorToCtx.y = cursorToCtx.y + #txt - 1
-		cursorToCtx.x = 1 + sysencoding.len(txt[#txt])
+		cursorToCtx.x = 1 + safeencoding.len(txt[#txt])
 	end
 	scrollToMotionContextEnd(editor, cursorToCtx)
 	updateCursorFromMotionContext(editor, cursorToCtx)
@@ -370,7 +370,7 @@ local function motionContextIntoBounds(editor, toCtx, opts)
 		toCtx.y = 1
 	end
 	local line = buf:getLine(toCtx.y)
-	local lineLength = sysencoding.len(line)
+	local lineLength = safeencoding.len(line)
 	if opts.onePastEnd then
 		lineLength = lineLength + 1
 	end
@@ -422,7 +422,7 @@ local function performSearchMotion(editor, toCtx, opts)
 		end
 		if backward then
 			toCtx.y = toCtx.y - 1
-			toCtx.x = sysencoding.len(buf:getLine(toCtx.y) or "") + 1
+			toCtx.x = safeencoding.len(buf:getLine(toCtx.y) or "") + 1
 		else
 			toCtx.y = toCtx.y + 1
 			toCtx.x = 0
@@ -459,7 +459,7 @@ local function performWordMotion(editor, toCtx, opts)
 		end
 		if opts.backward then
 			toCtx.y = toCtx.y - 1
-			toCtx.x = sysencoding.len(buf:getLine(toCtx.y) or "") + 1
+			toCtx.x = safeencoding.len(buf:getLine(toCtx.y) or "") + 1
 		else
 			toCtx.y = toCtx.y + 1
 			toCtx.x = 0
@@ -497,7 +497,7 @@ local function pullInputCharacter(editor)
 	editor.typeahead:applyModeMappings()
 	editor.typeahead:applyLangMappings()
 	local ch = typeahead.getSelfInsert(editor.typeahead:pull())
-	if sysencoding.len(ch) ~= 1 then
+	if safeencoding.len(ch) ~= 1 then
 		return nil
 	end
 	return ch
@@ -729,7 +729,7 @@ textObjects = {
 		end
 		toCtx.x = toCtx.x + getRepeatCount1(editor)
 		local line = buf:getLine(toCtx.y)
-		local lineLength = sysencoding.len(line)
+		local lineLength = safeencoding.len(line)
 		if toCtx.x > lineLength + 1 then
 		    toCtx.x = lineLength + 1
 		end
@@ -770,7 +770,7 @@ textObjects = {
 		    toCtx.y = numLines
 		end
 		local line = buf:getLine(toCtx.y)
-		local lineLength = sysencoding.len(line)
+		local lineLength = safeencoding.len(line)
 		toCtx.x = lineLength + 1
 		toCtx.wantX = nil
 		return toCtx
@@ -798,7 +798,7 @@ textObjects = {
 			toCtx.y = 1
 		end
 		local line = buf:getLine(toCtx.y)
-		toCtx.x = strptn.firstNonSpace(line) or sysencoding.len(line) + 1
+		toCtx.x = strptn.firstNonSpace(line) or safeencoding.len(line) + 1
 		toCtx.wantX = nil
 		return toCtx
 	end},
@@ -818,7 +818,7 @@ textObjects = {
 		    toCtx.y = numLines
 		end
 		local line = buf:getLine(toCtx.y)
-		local lineLength = sysencoding.len(line)
+		local lineLength = safeencoding.len(line)
 		if toCtx.x > lineLength + 1 then  -- do we need "lineLength + 1" in any text objects?
 		    toCtx.x = lineLength + 1
 		end

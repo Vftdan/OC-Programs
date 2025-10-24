@@ -1,4 +1,5 @@
-local sysencoding = require("vim.platform.sysencoding")
+local safeencoding = require("vim.safeencoding")
+local itertools = require("vim.itertools")
 local math = require("math")
 
 local KEYWORD_PTN = "[%w_\x80-\xff]+"
@@ -119,11 +120,11 @@ local function validatePtn(ptn)
 end
 
 local function byteLengthBetween(s, i, j)
-	return #sysencoding.sub(s, i, j)
+	return #safeencoding.sub(s, i, j)
 end
 
 local function unitPointIndex(s, unitIndex)
-	local len = sysencoding.len(s)
+	local len = safeencoding.len(s)
 	if unitIndex > #s then
 		return len + 1
 	end
@@ -338,6 +339,44 @@ local function matchesGetContainingIndex(matches, target)
 	return guess
 end
 
+local function matchesMerge(matchesTable, compareKey, selectKey)
+	compareKey = compareKey or 1
+	if selectKey then
+		matchesTable = itertools.collect(pairs(matchesTable))
+		for selectValue, matches in pairs(matchesTable) do
+			matchesTable[selectValue] = itertools.collect(itertools.mapIterator(function(i, m)
+				m = itertools.collect(pairs(m))
+				m[selectKey] = selectValue
+				return i, m
+			end, ipairs(matches)))
+		end
+	end
+	local positions = {}
+	for selectValue in pairs(matchesTable) do
+		positions[selectValue] = 1
+	end
+	local result = {}
+	while true do
+		local minSelectValue = nil
+		local minM = nil
+		for selectValue, matches in pairs(matchesTable) do
+			local m = matches[positions[selectValue]]
+			if m and m[compareKey] then
+				assert(m[selectKey] == selectValue)
+				if not minM or m[compareKey] < minM[compareKey] then
+					minSelectValue = selectValue
+					minM = m
+				end
+			end
+		end
+		if not minM then
+			return result
+		end
+		table.insert(result, minM)
+		positions[minSelectValue] = positions[minSelectValue] + 1
+	end
+end
+
 local function firstNonSpace(haystack)
 	local i = haystack:find(NONSPACE_PTN)
 	return i
@@ -359,6 +398,7 @@ return {
 	findNonSpaceBoundaries = findNonSpaceBoundaries,
 	matchesGetAdjacent = matchesGetAdjacent,
 	matchesGetContainingIndex = matchesGetContainingIndex,
+	matchesMerge = matchesMerge,
 	firstNonSpace = firstNonSpace,
 	firstSpace = firstSpace,
 }

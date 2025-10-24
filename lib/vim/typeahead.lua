@@ -1,4 +1,5 @@
 local events = require("vim.platform.events")
+local safeencoding = require("vim.safeencoding")
 local sysencoding = require("vim.platform.sysencoding")
 local makeClass = require("vim.makeclass")
 local keyseq = require("vim.keyseq")
@@ -175,7 +176,7 @@ for nativeName, vimName in pairs(modNamesMap) do
 end
 
 local function isCharacterKey(name)
-	if sysencoding.len(name) == 1 then
+	if safeencoding.len(name) == 1 then
 		return true
 	end
 	if builtinKeyCharacters[name] ~= nil then
@@ -185,7 +186,7 @@ local function isCharacterKey(name)
 end
 
 local function getSelfInsert(name)
-	if sysencoding.len(name) == 1 then
+	if safeencoding.len(name) == 1 then
 		return name
 	end
 	local ch = builtinKeyCharacters[name]
