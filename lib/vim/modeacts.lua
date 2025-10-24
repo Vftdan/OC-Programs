@@ -1,6 +1,7 @@
 local helpers = require("vim.helpers")
 local Trie = require("vim.trie")
 local safeencoding = require("vim.safeencoding")
+local sysencoding = require("vim.platform.sysencoding")
 local itertools = require("vim.itertools")
 local keyseq = require("vim.keyseq")
 local typeahead = require("vim.typeahead")
@@ -672,6 +673,43 @@ local insertActions = {
 	end,
 	["<C-r>+"] = function(editor)
 		helpers.expandPaste(editor, {noModeMap = true, noLangMap = true})
+		return false
+	end,
+	["<C-v>x"] = function(editor)
+		local charCode = 0
+		for _ = 1, 2 do
+			local nibbleNum = helpers.pullHexDigit(editor)
+			if not nibbleNum then
+				return false
+			end
+			charCode = charCode * 16 + nibbleNum
+		end
+		ch = string.char(charCode)
+		if ch == "\n" then
+			helpers.insertTextAtCursor(editor, {"", ""})
+		else
+			helpers.insertTextAtCursor(editor, {ch})
+		end
+		return false
+	end,
+	["<C-v>u"] = function(editor)
+		local charCode = 0
+		for _ = 1, 4 do
+			local nibbleNum = helpers.pullHexDigit(editor)
+			if not nibbleNum then
+				return false
+			end
+			charCode = charCode * 16 + nibbleNum
+		end
+		ch = sysencoding.fromCodePoint(charCode)
+		if not ch then
+			return false
+		end
+		if ch == "\n" then
+			helpers.insertTextAtCursor(editor, {"", ""})
+		else
+			helpers.insertTextAtCursor(editor, {ch})
+		end
 		return false
 	end,
 }

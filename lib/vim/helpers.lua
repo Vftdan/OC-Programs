@@ -493,6 +493,22 @@ local function pullCountString(editor)
 	return nil
 end
 
+local function pullHexDigit(editor)
+	local nibbleChar = typeahead.getSelfInsert(editor.typeahead:pull())
+	if not nibbleChar:find("^[0-9A-Fa-f]$") then
+		return nil
+	end
+	local nibbleNum
+	if nibbleChar:find("[A-F]") then
+		nibbleNum = nibbleChar:byte() - ("A"):byte() + 10
+	elseif nibbleChar:find("[a-f]") then
+		nibbleNum = nibbleChar:byte() - ("a"):byte() + 10
+	else
+		nibbleNum = nibbleChar:byte() - ("0"):byte()
+	end
+	return nibbleNum
+end
+
 local function pullInputCharacter(editor)
 	editor.typeahead:applyModeMappings()
 	editor.typeahead:applyLangMappings()
@@ -864,6 +880,7 @@ return {
 	performSearchMotion = performSearchMotion,
 	performWordMotion = performWordMotion,
 	pullCountString = pullCountString,
+	pullHexDigit = pullHexDigit,
 	pullInputCharacter = pullInputCharacter,
 	pullSearchString = pullSearchString,
 	pullTextObject = pullTextObject,
