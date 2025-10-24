@@ -1,6 +1,7 @@
 local helpers = require("vim.helpers")
 local typeahead = require("vim.typeahead")
 local sysencoding = require("vim.platform.sysencoding")
+local itertools = require("vim.itertools")
 
 local function normalModeSingle(editor)
 	editor.typeahead:setModeMappings(editor.mappings.n)
@@ -285,8 +286,11 @@ local cmdline = function(editor, opts)
 	opts = opts or {}
 	local prompt = opts.prompt or ""
 	local promptLength = sysencoding.len(prompt)
-	local state = {text = opts.text or "", finished = false}
+	local state = {text = opts.text or "", finished = false, history = itertools.collect(ipairs(opts.history or {}))}
+	local lastText = state.text
 	state.x = sysencoding.len(state.text) + 1
+	table.insert(state.history, state.text)
+	state.historyPos = #state.history
 	editor:setCmdlineRunning(true)
 	editor.typeahead:setModeMappings(editor.mappings.c)
 	while editor:isCmdlineRunning() and not state.finished and state.text do
@@ -338,7 +342,11 @@ local cmdline = function(editor, opts)
 					state.x = state.x + sysencoding.len(ch)
 				end
 			end
+			lastText = state.text or lastText
 		end
+	end
+	if opts.history and lastText ~= opts.history[state.historyPos] and #lastText > 0 then
+		table.insert(opts.history, lastText)
 	end
 	editor:setCmdlineRunning(true)
 	editor:setCmdlineCursor(nil)

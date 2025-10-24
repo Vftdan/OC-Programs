@@ -513,7 +513,7 @@ local function pullSearchString(editor, backward)
 	if backward then
 		prompt = "?"
 	end
-	local searchString = runMode(editor, modes.cmdline, {prompt = prompt})
+	local searchString = runMode(editor, modes.cmdline, {prompt = prompt, history = editor.searchHistory})
 	if not searchString then
 		return nil
 	end
@@ -541,7 +541,7 @@ local function pushModeCommandLine(editor)
 	if modes == nil then
 		modes = require("vim.modes")
 	end
-	local text = runMode(editor, modes.cmdline, {prompt = ":"})
+	local text = runMode(editor, modes.cmdline, {prompt = ":", history = editor.commandHistory})
 	if text then
 		command.execute(editor, text)
 	end

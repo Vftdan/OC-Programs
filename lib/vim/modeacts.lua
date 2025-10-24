@@ -745,6 +745,24 @@ local cmdlineActions = {
 		end
 		state.x = x + 1
 	end,
+	["<S-up>"] = function(editor, state)
+		if state.historyPos <= 1 then
+			return
+		end
+		state.history[state.historyPos] = state.text
+		state.historyPos = state.historyPos - 1
+		state.text = state.history[state.historyPos]
+		state.x = sysencoding.len(state.text) + 1
+	end,
+	["<S-down>"] = function(editor, state)
+		if state.historyPos >= #state.history then
+			return
+		end
+		state.history[state.historyPos] = state.text
+		state.historyPos = state.historyPos + 1
+		state.text = state.history[state.historyPos]
+		state.x = sysencoding.len(state.text) + 1
+	end,
 	["<C-b>"] = function(editor, state)
 		state.x = 1
 	end,
@@ -776,6 +794,10 @@ cmdlineActions["<S-cmdline>"] = cmdlineActions["<C-r>+"]
 cmdlineActions["<C-S-v>"] = cmdlineActions["<C-r>+"]
 cmdlineActions["<C-r><cmdline>"] = cmdlineActions["<C-r>+"]
 cmdlineActions["<C-r><C-v>"] = cmdlineActions["<C-r>+"]
+
+-- TODO recall history by prefix
+cmdlineActions["<up>"] = cmdlineActions["<S-up>"]
+cmdlineActions["<down>"] = cmdlineActions["<S-down>"]
 
 local function getOrNewTrie(tbl, name)
 	local val = tbl[name]
