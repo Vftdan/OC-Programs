@@ -1,5 +1,7 @@
 local unicode = require("unicode")
 
+local REPLACEMENT = "\xef\xbf\xbd"
+
 local function codePointAt(str, index)
 	index = index or 1
 	local ch = unicode.sub(str, index, index)
@@ -53,7 +55,19 @@ end
 
 local function firstInvalidByte(s)
 	local _, n = unicode.len(s)
-	return n
+	if n then
+		return n
+	end
+	local t = unicode.sub(s, 1)
+	local newReplacement = t:find(REPLACEMENT)
+	if not newReplacement then
+		return nil
+	end
+	local oldReplacement = s:find(REPLACEMENT)
+	if not oldReplacement or newReplacement < oldReplacement then
+		return newReplacement
+	end
+	return nil
 end
 
 return {
