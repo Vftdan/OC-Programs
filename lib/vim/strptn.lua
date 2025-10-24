@@ -24,9 +24,98 @@ local function escapePtn(s)
 	return s:gsub(MAGIC_CHARS_PTN, prependPercent)
 end
 
+local function tokenizePtn(s)
+	local tokens = {}
+	local i = 0
+	while i < #s do
+		i = i + 1
+		local c = s:sub(i, i)
+		if c == "%" then
+			if i == #s then
+				return nil, "trailing %"
+			end
+			i = i + 1
+			c = c .. s:sub(i, i)
+		end
+		if c == "%b" then
+			if i >= #s - 1 then
+				return nil, "unfinished balanced rule"
+			end
+			i = i + 2
+			c = c .. s:sub(i - 1, i)
+		end
+		table.insert(tokens, c)
+	end
+	return tokens
+end
+
+-- Lua engine is more lenient and may treat misplaced tokens as if they were escaped
+-- We will reject it as potentially not what the user intends to express
 local function validatePtn(ptn)
-	local success = pcall(string.find, "", ptn)
-	return success
+	local tokens, reason = tokenizePtn(ptn)
+	if not tokens then
+		return false, reason
+	end
+	local insideSet = false
+	local setStart = false
+	local groupDepth = 0
+	local allowQuantifiers = false
+	for _, tok in ipairs(tokens) do
+		if tok == "(" then
+			if insideSet then
+				return false, "capture inside set"
+			end
+			groupDepth = groupDepth + 1
+			allowQuantifiers = false
+		elseif tok == ")" then
+			if insideSet then
+				return false, "capture ending inside set"
+			end
+			if groupDepth < 1 then
+				return false, "unmatched capture ending"
+			end
+			groupDepth = groupDepth - 1
+			allowQuantifiers = false
+		elseif tok == "+" or tok == "-" or tok == "*" or tok == "?" then
+			if not allowQuantifiers then
+				return false, "misplaced quantifier"
+			end
+			allowQuantifiers = false
+		elseif tok == "[" then
+			if insideSet then
+				return false, "nested set"
+			end
+			insideSet = true
+			allowQuantifiers = false
+		elseif tok == "]" then
+			-- When not inside set, it is treated literally
+			insideSet = false
+			allowQuantifiers = true
+		elseif tok == "^" then
+			if insideSet and not setStart then
+				return false, "set negation not in the beginning"
+			end
+			allowQuantifiers = false
+		elseif tok == "$" then
+			if insideSet then
+				return false, "eos rule inside set"
+			end
+			allowQuantifiers = false
+		elseif tok:sub(1, 2) == "%b" then
+			allowQuantifiers = false
+		else
+			-- Literal and escaped characters, classes, universal class
+			allowQuantifiers = true
+		end
+		setStart = tok == "["
+	end
+	if groupDepth > 0 then
+		return false, "unterminated capture"
+	end
+	if insideSet then
+		return false, "unterminated set"
+	end
+	return true
 end
 
 local function byteLengthBetween(s, i, j)
