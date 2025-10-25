@@ -2,6 +2,22 @@ local strptn = require("vim.strptn")
 local safeencoding = require("vim.safeencoding")
 local option = require("vim.option")
 
+local sourceFile
+
+local function runtimeFile(editor, name, all)
+	local success = false
+	for _, dir in ipairs(editor.runtimeDirs) do
+		local found = sourceFile(editor, dir .. "/" .. name)
+		if found then
+			success = true
+			if not all then
+				break
+			end
+		end
+	end
+	return success
+end
+
 local function optionCommand(editor, argStr, opts)
 	opts = opts or {}
 	local args = {}
@@ -97,11 +113,27 @@ local commands = {
 	set = function(editor, argStr)
 		optionCommand(editor, argStr)
 	end,
+	source = function(editor, argStr)
+		if not sourceFile(editor, argStr) then
+			editor:echoErr("Could not find file:", argStr)
+		end
+	end,
+	runtime = function(editor, argStr)
+		if not runtimeFile(editor, argStr) then
+			editor:echoErr("Could not find file in the runtime directories:", argStr)
+		end
+	end,
+	["runtime!"] = function(editor, argStr)
+		if not runtimeFile(editor, argStr, true) then
+			editor:echoErr("Could not find file in the runtime directories:", argStr)
+		end
+	end,
 }
 
 commands.w = commands.write
 commands.q = commands.quit
 commands.nohl = commands.nohlsearch
+commands.so = commands.source
 
 local function execute(editor, cmdStr)
 	local nonBlankPos = strptn.firstNonSpace(cmdStr)
@@ -132,7 +164,33 @@ local function execute(editor, cmdStr)
 	end
 end
 
+local function sourceFileHandle(editor, fh)
+	while true do
+		local cmd = fh:read()
+		if cmd == nil or cmd:find("^%s*finish$") then
+			return
+		end
+		execute(editor, cmd)
+		if not editor:isRunning() then
+			return
+		end
+	end
+end
+
+function sourceFile(editor, fname)
+	local fh = io.open(fname, "r")
+	if fh then
+		sourceFileHandle(editor, fh)
+	else
+		return false
+	end
+	return true
+end
+
 return {
 	commands = commands,
 	execute = execute,
+	sourceFileHandle = sourceFileHandle,
+	sourceFile = sourceFile,
+	runtimeFile = runtimeFile,
 }

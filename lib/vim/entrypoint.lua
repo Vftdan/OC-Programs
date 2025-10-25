@@ -13,18 +13,9 @@ local function runInitCommands(editor, preRcCommands, postRcCommands, rcFile, go
 		end
 	end
 	if rcFile ~= "NORC" and rcFile ~= "NONE" then
-		local rcFh = io.open(rcFile, "r")
-		if rcFh then
-			while true do
-				local cmd = rcFh:read()
-				if cmd == nil then
-					break
-				end
-				command.execute(editor, cmd)
-				if not editor:isRunning() then
-					return
-				end
-			end
+		command.sourceFile(editor, rcFile)
+		if not editor:isRunning() then
+			return
 		end
 	end
 	for _, cmd in ipairs(postRcCommands) do
