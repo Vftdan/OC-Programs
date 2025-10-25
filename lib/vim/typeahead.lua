@@ -218,9 +218,7 @@ local Typeahead = makeClass {
 		self._preWaitHandlers = {}
 		self._activeModifiers = {}
 		self._prefixedModifiers = {}
-		self._unaccountedPaste = false
-		self._lastAppended = nil
-		self._lastWasKeypress = false
+		self._expectPasteChunks = false
 	end,
 	getLength = function(self)
 		return #self._queue
@@ -242,11 +240,8 @@ local Typeahead = makeClass {
 			update = update,
 			noModeMap = kwargs.noModeMap or false,
 			noLangMap = kwargs.noLangMap or false,  -- should it be separate from mode mapping?
-			synthetic = kwargs.synthetic or false,
+			isPasted = kwargs.isPasted or false,
 		}
-		if index == #self._queue + 1 and not kwargs.synthetic then
-			self._lastAppended = item
-		end
 		table.insert(self._queue, index, item)
 	end,
 	pull = function(self)
@@ -278,8 +273,11 @@ local Typeahead = makeClass {
 		end
 		return item.name
 	end,
-	wasLastKeypress = function(self)
-		return self._lastWasKeypress
+	getPasteData = function(self)
+		while self:getLength() < 1 and self._expectPasteChunks do
+			self:yieldCPU()
+		end
+		return self.inputProperties.pasteData or ""
 	end,
 	setModeMappings = function(self, trie)
 		self._modeMappings = trie
@@ -407,16 +405,14 @@ local Typeahead = makeClass {
 		itertools.update(self._scheduledPropertyUpdate, update)
 	end,
 	_handleNativeEvent = function(self, ev)
-		local unaccountedPaste = self._unaccountedPaste
 		if events.isInterrupt(ev) then
 			error("Interrupted")
 		end
 		local flag, data
 		flag, data = events.isKeyPressOrChar(ev)
 		if flag then
-			self._unaccountedPaste = false
-			self._lastWasKeypress = true
 			-- when ctrl is actually held, printable keys are handled by scancode, otherwise by text
+			self._expectPasteChunks = true
 			local ctrlHeld = false
 			for modCode, modHeld in pairs(self._activeModifiers) do
 				if modHeld and modifierNames[modCode] == "C" then
@@ -469,7 +465,7 @@ local Typeahead = makeClass {
 			flag, data = events.isKeyUp(ev)
 		end
 		if flag then
-			self._lastWasKeypress = false
+			self._expectPasteChunks = false
 			local s = data.scanCode
 			local translatedMod = modifierNames[s]
 			if translatedMod ~= nil then
@@ -480,8 +476,7 @@ local Typeahead = makeClass {
 		end
 		flag, data = events.isMouseDown(ev)
 		if flag then
-			self._unaccountedPaste = false
-			self._lastWasKeypress = false
+			self._expectPasteChunks = true
 			local buttonName = data.button and events.mouseButtonNames[data.button]
 			local translatedKey = buttonName and mouseNamesMap[buttonName]
 			local mods = self:getLatestModifiers(true)
@@ -495,10 +490,13 @@ local Typeahead = makeClass {
 			self:insert(translatedKey, {update = {mouseX = data.x, mouseY = data.y}})
 			return
 		end
+		if events.isMouseUp(ev) then
+			self._expectPasteChunks = false
+			return
+		end
 		flag, data = events.isMouseScroll(ev)
 		if flag then
-			self._unaccountedPaste = false
-			self._lastWasKeypress = false
+			self._expectPasteChunks = false
 			local mods = self:getLatestModifiers(true)
 			if data.dy ~= 0 then
 				local absAmount = data.dy
@@ -530,23 +528,12 @@ local Typeahead = makeClass {
 		if flag then
 			if data.consumedEvent then
 				self:_handleNativeEvent(data.consumedEvent)
-				unaccountedPaste = self._unaccountedPaste
 			end
-			self._unaccountedPaste = true
-			self._lastWasKeypress = false
-			local lastKey = self._lastAppended
-			if unaccountedPaste and lastKey then
-				-- Repeated pastes without keys inbetween repeat the last key
-				self:insert(lastKey.name, {update = {pasteData = data.text}, noModeMap = lastKey.noModeMap, noLangMap = lastKey.noLangMap, synthetic = true})
+			if self:getLength() < 1 then
+				self.inputProperties.pasteData = (self.inputProperties.pasteData or "") .. data.text
 			else
-				local len = self:getLength()
-				if len > 0 then
-					-- Update paste data when the currently last key is pulled
-					lastKey.update.pasteData = data.text
-				else
-					-- It may be not too late to update the currently active properties
-					self.inputProperties.pasteData = data.text
-				end
+				local item = self:_peekRaw(self:getLength())
+				item.update.pasteData = (item.update.pasteData or "") .. data.text
 			end
 			return
 		end

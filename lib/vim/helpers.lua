@@ -51,18 +51,13 @@ end
 
 local function expandPaste(editor, opts)
 	opts = opts or {}
-	while editor.typeahead:getLength() < 1 and editor.typeahead:wasLastKeypress() do
-		-- TODO try to find a cleaner solution
-		-- Let immediate paste events arrive
-		editor.typeahead:yieldCPU()
-	end
-	local str = editor.typeahead.inputProperties.pasteData or ""
+	local str = editor.typeahead:getPasteData()
 	for i = 1, safeencoding.len(str) do
 		local ch = safeencoding.sub(str, i, i)
 		if ch == "\n" or ch == "\r" then
 			ch = "cr"
 		end
-		editor.typeahead:insert(ch, {index = i, noModeMap = opts.noModeMap, noLangMap = opts.noLangMap, update = opts.update, synthetic = true})
+		editor.typeahead:insert(ch, {index = i, noModeMap = opts.noModeMap, noLangMap = opts.noLangMap, update = opts.update, isPasted = true})
 	end
 end
 
