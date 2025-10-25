@@ -230,8 +230,7 @@ local Window = makeClass {
 		local contentHeight = height - 1  -- Reserve status line space
 		local cursorX = self._editor._cursorX or 1
 		local cursorY = self._editor._cursorY or 1
-		local cursorViewportX = cursorX - self._scrollX
-		local cursorViewportY = cursorY - self._scrollY
+		local cursorViewportX, cursorViewportY = self:projectToContent(cursorX, cursorY)
 		local visualBoundaries = nil
 		if self._visualSelection then
 			visualBoundaries = {helpers.getTextObjectEnds(self._editor, helpers.finalizeMotion(self._editor, self._visualSelection))}
@@ -350,36 +349,64 @@ local Window = makeClass {
 	isFocused = function(self)
 		return self._focused
 	end,
-	--- Convert screen position to buffer position
-	unproject = function(self, screenX, screenY)
+	--- Convert window content position to buffer position
+	unprojectFromContent = function(self, contentX, contentY)
 		local contentWidth, contentHeight = self:getContentSize()
 		local scrollX, scrollY = self:getScrollAmount()
-		local bufY = screenY + scrollY
-		local lineNrWidth = safeencoding.len(tostring(self.currentBuffer:getLineCount())) + 1
-		local contentX = screenX - lineNrWidth
+		local bufY = contentY + scrollY
 		local psl = self:_getPrintableStyledLine(bufY)
+		local unscrolledContentX = scrollX + contentX
 		if not psl or #psl < 1 then
-			return scrollX + contentX, bufY
-		end
-		psl = printableStyledToView(psl, scrollX, contentWidth)
-		if #psl < 1 then
-			-- FIXME imprecise
-			return scrollX + contentX, bufY
+			return unscrolledContentX, bufY
 		end
 		for i, entry in ipairs(psl) do
-			if entry.firstColumn > contentX then
-				return entry.firstCodePoint - entry.firstColumn + contentX
+			if entry.firstColumn > unscrolledContentX then
+				return entry.firstCodePoint - entry.firstColumn + contentX + scrollX, bufY
 			end
-			if entry.lastColumn >= contentX then
+			if entry.lastColumn >= unscrolledContentX then
 				local bufX = entry.firstCodePoint - entry.firstColumn + contentX
 				if bufX > entry.lastCodePoint then
 					bufX = entry.lastCodePoint
 				end
+				bufX = bufX + scrollX
 				return bufX, bufY
 			end
 		end
 		local lastEntry = psl[#psl]
-		return contentX - lastEntry.lastColumn + lastEntry.lastCodePoint, bufY
+		return contentX - lastEntry.lastColumn + lastEntry.lastCodePoint + scrollX, bufY
+	end,
+	--- Convert screen position to buffer position
+	unproject = function(self, screenX, screenY)
+		local lineNrWidth = safeencoding.len(tostring(self.currentBuffer:getLineCount())) + 1
+		return self:unprojectFromContent(screenX - lineNrWidth, screenY)
+	end,
+	--- Convert buffer position to (potential) window content position
+	projectToContent = function(self, bufX, bufY)
+		local scrollX, scrollY = self:getScrollAmount()
+		local psl = self:_getPrintableStyledLine(bufY)
+		local contentY = bufY - scrollY
+		if not psl or #psl < 1 then
+			return bufX - scrollX, contentY
+		end
+		for i, entry in ipairs(psl) do
+			if entry.firstCodePoint > bufX then
+				return entry.firstColumn - scrollX - entry.firstCodePoint + bufX, contentY
+			end
+			if entry.lastCodePoint >= bufX then
+				local contentX = entry.firstColumn - entry.firstCodePoint + bufX
+				if contentX > entry.lastColumn then
+					contentX = entry.lastColumn
+				end
+				contentX = contentX - scrollX
+				return contentX, contentY
+			end
+		end
+	end,
+	--- Convert buffer position to (potential) screen position
+	project = function(self, bufX, bufY)
+		local lineNrWidth = safeencoding.len(tostring(self.currentBuffer:getLineCount())) + 1
+		local contentX, contentY = self:projectToContent(bufX, bufY)
+		return contentX + lineNrWidth, contentY
 	end,
 }
 

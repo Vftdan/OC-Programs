@@ -645,23 +645,29 @@ local function scrollBy(editor, dx, dy, opts)
 	local scrollX, scrollY = win:getScrollAmount()
 	scrollX = scrollX + dx
 	scrollY = scrollY + dy
+	if scrollX < 0 then
+		scrollX = 0
+	end
+	if scrollY < 0 then
+		scrollY = 0
+	end
 	win:setScrollAmount(scrollX, scrollY)
 	local contentWidth, contentHeight = win:getContentSize()
-	local cursorWindowX = cursorToCtx.x - scrollX
-	local cursorWindowY = cursorToCtx.y - scrollY
+	local cursorWindowX, cursorWindowY = win:projectToContent(cursorToCtx.x, cursorToCtx.y)
 
 	if cursorWindowX > contentWidth then
-		cursorToCtx.x = cursorToCtx.x - cursorWindowX + contentWidth
+		cursorWindowX = contentWidth
 		cursorToCtx.wantX = nil
 	elseif cursorWindowX < 1 then
-		cursorToCtx.x = cursorToCtx.x - cursorWindowX + 1
+		cursorWindowX = 1
 		cursorToCtx.wantX = nil
 	end
 	if cursorWindowY > contentHeight then
-		cursorToCtx.y = cursorToCtx.y - cursorWindowY + contentHeight
+		cursorWindowY = contentHeight
 	elseif cursorWindowY < 1 then
-		cursorToCtx.y = cursorToCtx.y - cursorWindowY + 1
+		cursorWindowY = 1
 	end
+	cursorToCtx.x, cursorToCtx.y = win:unprojectFromContent(cursorWindowX, cursorWindowY)
 
 	motionContextIntoBounds(editor, cursorToCtx, opts)
 	scrollToMotionContextEnd(editor, cursorToCtx)
@@ -680,9 +686,7 @@ function scrollToMotionContextEnd(editor, toCtx)
 
 	local scrollX, scrollY = win:getScrollAmount()
 	local contentWidth, contentHeight = win:getContentSize()
-
-	local cursorWindowX = toCtx.x - scrollX
-	local cursorWindowY = toCtx.y - scrollY
+	local cursorWindowX, cursorWindowY = win:projectToContent(toCtx.x, toCtx.y)
 	if cursorWindowX > contentWidth then
 		scrollX = scrollX + cursorWindowX - contentWidth
 	elseif cursorWindowX < 1 then
