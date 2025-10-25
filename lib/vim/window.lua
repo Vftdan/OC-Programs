@@ -405,6 +405,8 @@ local Window = makeClass {
 				return contentX, contentY
 			end
 		end
+		local lastEntry = psl[#psl]
+		return bufX - lastEntry.lastCodePoint + lastEntry.lastColumn - scrollX, contentY
 	end,
 	--- Convert buffer position to (potential) screen position
 	project = function(self, bufX, bufY)
