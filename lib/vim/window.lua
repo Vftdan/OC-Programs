@@ -133,6 +133,10 @@ local function printableStyledAddHighlight(orig, lineBegX, lineEdX, styleName)
 			if edX > entryLength then
 				edX = entryLength
 			end
+			local visualEdX = edX
+			if entryLength == 1 then
+				visualEdX = entry.lastColumn - entry.firstColumn + 1
+			end
 			if begX > 1 then
 				local s = safeencoding.sub(entry.string, 1, begX - 1)
 				local newEntry = {
@@ -148,7 +152,7 @@ local function printableStyledAddHighlight(orig, lineBegX, lineEdX, styleName)
 				end
 				table.insert(result, newEntry)
 			end
-			local s = safeencoding.sub(entry.string, begX, edX)
+			local s = safeencoding.sub(entry.string, begX, visualEdX)
 			local styleWithVisual = itertools.collect(ipairs(entry.styleNames))
 			styleWithVisual[#styleWithVisual + 1] = styleName
 			local newEntry = {
@@ -157,7 +161,7 @@ local function printableStyledAddHighlight(orig, lineBegX, lineEdX, styleName)
 				firstCodePoint = entry.firstCodePoint + begX - 1,
 				lastCodePoint = entry.firstCodePoint + edX - 1,
 				firstColumn = entry.firstColumn + begX - 1,
-				lastColumn = entry.firstColumn + edX - 1,
+				lastColumn = entry.firstColumn + visualEdX - 1,
 			}
 			if newEntry.firstCodePoint > entry.lastCodePoint then
 				newEntry.firstCodePoint = entry.lastCodePoint
@@ -166,14 +170,14 @@ local function printableStyledAddHighlight(orig, lineBegX, lineEdX, styleName)
 				newEntry.lastCodePoint = entry.lastCodePoint
 			end
 			table.insert(result, newEntry)
-			if edX < safeencoding.len(entry.string) then
-				local s = safeencoding.sub(entry.string, edX + 1)
+			if visualEdX < safeencoding.len(entry.string) then
+				local s = safeencoding.sub(entry.string, visualEdX + 1)
 				local newEntry = {
 					string = s,
 					styleNames = entry.styleNames,
 					firstCodePoint = entry.firstCodePoint + edX,
 					lastCodePoint = entry.lastCodePoint,
-					firstColumn = entry.firstColumn + edX,
+					firstColumn = entry.firstColumn + visualEdX,
 					lastColumn = entry.lastColumn,
 				}
 				if newEntry.firstCodePoint > entry.lastCodePoint then
