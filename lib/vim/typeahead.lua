@@ -219,6 +219,7 @@ local Typeahead = makeClass {
 		self._activeModifiers = {}
 		self._prefixedModifiers = {}
 		self._expectPasteChunks = false
+		self._lastWasPasted = false
 	end,
 	getLength = function(self)
 		return #self._queue
@@ -254,6 +255,7 @@ local Typeahead = makeClass {
 			item = table.remove(self._queue, 1)
 		end
 		itertools.update(self.inputProperties, item.update)
+		self._lastWasPasted = item.isPasted
 		return item.name
 	end,
 	_peekRaw = function(self, idx)
@@ -278,6 +280,9 @@ local Typeahead = makeClass {
 			self:yieldCPU()
 		end
 		return self.inputProperties.pasteData or ""
+	end,
+	wasLastPasted = function(self)
+		return self._lastWasPasted
 	end,
 	setModeMappings = function(self, trie)
 		self._modeMappings = trie

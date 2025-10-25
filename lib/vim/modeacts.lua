@@ -651,7 +651,18 @@ local insertActions = {
 		return false
 	end,
 	["<cr>"] = function(editor)
-		helpers.insertTextAtCursor(editor, {"", ""})
+		local buf = editor:getCurrentBuffer()
+		if buf == nil then
+			return
+		end
+		local indent = ""
+		if not editor.typeahead:wasLastPasted() then
+			local cursorToCtx = helpers.makeMotionContext(editor)
+			local line = buf:getLine(cursorToCtx.y)
+			local indentLen = (strptn.firstNonSpace(line) or safeencoding.len(line) + 1) - 1
+			indent = safeencoding.sub(line, 1, indentLen)
+		end
+		helpers.insertTextAtCursor(editor, {"", indent})
 		return false
 	end,
 	["<bs>"] = function(editor)
