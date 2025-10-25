@@ -735,8 +735,15 @@ function setTextObjectAsRegister(editor, to, regValue)
 	local txt = regValue.lines
 	if regValue.linewise then
 		txt = itertools.collect(ipairs(txt))
-		if isEmptyTextObject(editor, to) and to.x > 0 then
-			table.insert(txt, 1, "")
+		local empty = isEmptyTextObject(editor, to)
+		local after = empty and to.x > 0
+		local numLines = buf:getLineCount()
+		local eob = to.y >= numLines or to.initialY >= numLines
+		local sob = to.y <= 1 or to.initialY <= 1
+		if after or eob and not empty then
+			if after or not sob then
+				table.insert(txt, 1, "")
+			end
 		else
 			table.insert(txt, "")
 		end
