@@ -889,11 +889,11 @@ textObjects = {
 		return toCtx
 	end},
 	searchNext = {{exclusive = true}, function(editor, toCtx)
-		editor.hlsearch = true
+		editor.hlsearch = editor.triggerHlsearch
 		return performSearchMotion(editor, toCtx, {previous = false})
 	end},
 	searchPrevious = {{exclusive = true}, function(editor, toCtx)
-		editor.hlsearch = true
+		editor.hlsearch = editor.triggerHlsearch
 		return performSearchMotion(editor, toCtx, {previous = true})
 	end},
 }

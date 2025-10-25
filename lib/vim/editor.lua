@@ -32,6 +32,7 @@ local Editor = makeClass {
 		self._cmdlineCursor = nil
 		self._cmdlineMessage = nil
 		self.hlsearch = false
+		self.triggerHlsearch = false
 		self.commandHistory = {}
 		self.searchHistory = {}
 	end,

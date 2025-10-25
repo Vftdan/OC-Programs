@@ -6,6 +6,8 @@ local KEYWORD_PTN = "[%w_\x80-\xff]+"
 local PUNCT_PTN = "[^%s%w_\x80-\xff]+"
 local NONSPACE_PTN = "%S+"
 local SPACE_PTN = "%s+"
+local BACKSLASH = "\\"
+local BACKSLASH_OR_SPACE_PTN = "[%s\\]"
 local MAGIC_CHARS = "().%+-*?[^$"
 local MAGIC_CHARS_PTN
 
@@ -390,6 +392,31 @@ local function firstSpace(haystack)
 	return unitPointIndex(haystack, i)
 end
 
+local function firstBackslash(haystack)
+	local i = haystack:find(BACKSLASH)
+	if not i then
+		return nil
+	end
+	return unitPointIndex(haystack, i)
+end
+
+local function firstUnescapedSpace(haystack)
+	local start = 1
+	while start <= #haystack do
+		local i = haystack:find(BACKSLASH_OR_SPACE_PTN, start)
+		if not i then
+			return nil
+		end
+		local ch = haystack:sub(i, i)
+		if ch == BACKSLASH then
+			start = i + 2
+		else
+			return unitPointIndex(haystack, i)
+		end
+	end
+	return nil
+end
+
 return {
 	escapePtn = escapePtn,
 	validatePtn = validatePtn,
@@ -401,4 +428,6 @@ return {
 	matchesMerge = matchesMerge,
 	firstNonSpace = firstNonSpace,
 	firstSpace = firstSpace,
+	firstBackslash = firstBackslash,
+	firstUnescapedSpace = firstUnescapedSpace,
 }
