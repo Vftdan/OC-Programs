@@ -417,6 +417,25 @@ local function firstUnescapedSpace(haystack)
 	return nil
 end
 
+local function unescapeBackslash(haystack)
+	local builder = {}
+	local start = 1
+	-- TODO hex sequences
+	while start <= #haystack do
+		local i = haystack:find(BACKSLASH, start)
+		if not i then
+			break
+		end
+		local ch = haystack:sub(i + 1, i + 1)
+		table.insert(builder, ch)
+		start = i + 2
+	end
+	if start <= #haystack then
+		table.insert(builder, haystack:sub(start))
+	end
+	return table.concat(builder)
+end
+
 return {
 	escapePtn = escapePtn,
 	validatePtn = validatePtn,
@@ -430,4 +449,5 @@ return {
 	firstSpace = firstSpace,
 	firstBackslash = firstBackslash,
 	firstUnescapedSpace = firstUnescapedSpace,
+	unescapeBackslash = unescapeBackslash,
 }

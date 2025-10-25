@@ -18,8 +18,7 @@ local function runtimeFile(editor, name, all)
 	return success
 end
 
-local function optionCommand(editor, argStr, opts)
-	opts = opts or {}
+local function splitArgs(argStr)
 	local args = {}
 	while #argStr > 0 do
 		local argSepPos = strptn.firstUnescapedSpace(argStr)
@@ -27,7 +26,7 @@ local function optionCommand(editor, argStr, opts)
 			table.insert(args, argStr)
 			break
 		end
-		nextArg = safeencoding.sub(argStr, 1, argSepPos - 1)
+		nextArg = strptn.unescapeBackslash(safeencoding.sub(argStr, 1, argSepPos - 1))
 		table.insert(args, nextArg)
 		argStr = safeencoding.sub(argStr, argSepPos)
 		nonBlankPos = strptn.firstNonSpace(argStr)
@@ -36,6 +35,12 @@ local function optionCommand(editor, argStr, opts)
 		end
 		argStr = safeencoding.sub(argStr, nonBlankPos)
 	end
+	return args
+end
+
+local function optionCommand(editor, argStr, opts)
+	opts = opts or {}
+	local args = splitArgs(argStr)
 	for _, arg in ipairs(args) do
 		local optName, value = arg, nil
 		local method
@@ -128,12 +133,89 @@ local commands = {
 			editor:echoErr("Could not find file in the runtime directories:", argStr)
 		end
 	end,
+	highlight = function(editor, argStr)
+		local args = splitArgs(argStr)
+		local i = 1
+		local useDefault = false
+		local doLink = false
+		if args[i] == "default" or args[i] == "def" then
+			useDefault = true
+			i = i + 1
+		end
+		if args[i] == "link" then
+			doLink = true
+			i = i + 1
+		end
+		local groupName = args[i]
+		i = i + 1
+		if not groupName then
+			editor:echoErr("Not enough arguments: highlight", argStr)
+			return
+		end
+		if doLink then
+			local targetName = args[i]
+			i = i + 1
+			if not targetName then
+				editor:echoErr("Not enough arguments: highlight", argStr)
+				return
+			end
+			if i < #args then
+				editor:echoErr("Too many arguments: highlight", argStr)
+				return
+			end
+			if useDefault then
+				editor.styleRegistry:linkDefault(groupName, targetName)
+			else
+				editor.styleRegistry:link(groupName, targetName)
+			end
+		else
+			local tbl = {}
+			while args[i] do
+				local arg = args[i]
+				i = i + 1
+				local equalsByteIndex = arg:find("=") or #arg + 1
+				local key = arg:sub(1, equalsByteIndex - 1)
+				local value = arg:sub(equalsByteIndex + 1)
+				if key == "ctermbg" or key == "ctermfg" or key == "ctermsp" then
+					local color = tonumber(value)
+					if not color or color < 0 or color > 15 or color % 1 ~= 0 then
+						editor:echoErr("Invalid cterm color:", value)
+					else
+						tbl[key] = color
+					end
+				elseif key == "guibg" or key == "guifg" or key == "guisp" then
+					local color = tonumber("0x" .. value:sub(2))
+					if value:sub(1, 1) ~= "#" or not color or color < 0 or color > 0xFFFFFF or color % 1 ~= 0 then
+						editor:echoErr("Invalid hex color:", value)
+					else
+						tbl[key] = color
+					end
+				elseif key == "cterm" or key == "gui" then
+					for item in value:gmatch("[^,]+") do
+						if item == "bold" or item == "itelic" or item == "underline" or item == "reverse" then
+							tbl[item] = true
+						else
+							editor:echoErr("Illegal value:", item)
+						end
+					end
+				else
+					editor:echoErr("Illegal argument:", arg)
+				end
+			end
+			if useDefault then
+				editor.styleRegistry:defineDefault(groupName, tbl)
+			else
+				editor.styleRegistry:define(groupName, tbl)
+			end
+		end
+	end,
 }
 
 commands.w = commands.write
 commands.q = commands.quit
 commands.nohl = commands.nohlsearch
 commands.so = commands.source
+commands.hi = commands.highlight
 
 local function execute(editor, cmdStr)
 	local nonBlankPos = strptn.firstNonSpace(cmdStr)
