@@ -223,6 +223,10 @@ local function execute(editor, cmdStr)
 		return
 	end
 	cmdStr = safeencoding.sub(cmdStr, nonBlankPos)
+	if safeencoding.sub(cmdStr, 1, 1) == "\"" then
+		-- Comment
+		return
+	end
 	local argSepPos = strptn.firstSpace(cmdStr)
 	local cmdName, argStr
 	if argSepPos then

@@ -935,6 +935,8 @@ cmdlineActions["<C-r><C-v>"] = cmdlineActions["<C-r>+"]
 -- TODO recall history by prefix
 cmdlineActions["<up>"] = cmdlineActions["<S-up>"]
 cmdlineActions["<down>"] = cmdlineActions["<S-down>"]
+cmdlineActions["<home>"] = cmdlineActions["<C-b>"]
+cmdlineActions["<end>"] = cmdlineActions["<C-e>"]
 
 local function getOrNewTrie(tbl, name)
 	local val = tbl[name]
