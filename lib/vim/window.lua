@@ -350,6 +350,37 @@ local Window = makeClass {
 	isFocused = function(self)
 		return self._focused
 	end,
+	--- Convert screen position to buffer position
+	unproject = function(self, screenX, screenY)
+		local contentWidth, contentHeight = self:getContentSize()
+		local scrollX, scrollY = self:getScrollAmount()
+		local bufY = screenY + scrollY
+		local lineNrWidth = safeencoding.len(tostring(self.currentBuffer:getLineCount())) + 1
+		local contentX = screenX - lineNrWidth
+		local psl = self:_getPrintableStyledLine(bufY)
+		if not psl or #psl < 1 then
+			return scrollX + contentX, bufY
+		end
+		psl = printableStyledToView(psl, scrollX, contentWidth)
+		if #psl < 1 then
+			-- FIXME imprecise
+			return scrollX + contentX, bufY
+		end
+		for i, entry in ipairs(psl) do
+			if entry.firstColumn > contentX then
+				return entry.firstCodePoint - entry.firstColumn + contentX
+			end
+			if entry.lastColumn >= contentX then
+				local bufX = entry.firstCodePoint - entry.firstColumn + contentX
+				if bufX > entry.lastCodePoint then
+					bufX = entry.lastCodePoint
+				end
+				return bufX, bufY
+			end
+		end
+		local lastEntry = psl[#psl]
+		return contentX - lastEntry.lastColumn + lastEntry.lastCodePoint, bufY
+	end,
 }
 
 local function withBuffer(buf)

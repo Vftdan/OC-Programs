@@ -342,6 +342,8 @@ local simpleNonprintMotions = {
 	["<right>"] = simpleMotions.l,
 	["<home>"] = simpleMotions["0"],
 	["<end>"] = simpleMotions["$"],
+	["<leftmouse>"] = {{exclusive = true}, helpers.performMouseMotion},
+	["<rightmouse>"] = {{exclusive = false}, helpers.performMouseMotion},
 }
 
 local textObjectMotions = {
@@ -633,6 +635,11 @@ local normalActions = {
 			editor:echo(string.format("Redone %d changes", n))
 		end
 	end,
+	["<rightmouse>"] = function(editor)
+		local toCtx = helpers.makeMotionContext(editor)
+		helpers.performMouseMotion(editor, toCtx)
+		helpers.pushModeVisual(editor, toCtx)
+	end,
 }
 
 local insertActions = {
@@ -745,6 +752,16 @@ local visualActions = {
 		toCtx.x, toCtx.initialX = toCtx.initialX, toCtx.x
 		toCtx.wantX = nil
 		return false, toCtx
+	end,
+	["<leftmouse>"] = function(editor, toCtx)
+		local to = helpers.finalizeMotion(editor, toCtx)
+		helpers.setLastSelection(editor, to)
+		local cursorToCtx = helpers.makeMotionContext(editor)
+		helpers.performMouseMotion(editor, cursorToCtx)
+		helpers.motionContextIntoBounds(editor, cursorToCtx)
+		helpers.scrollToMotionContextEnd(editor, cursorToCtx)
+		helpers.updateCursorFromMotionContext(editor, cursorToCtx)
+		return true, toCtx
 	end,
 }
 

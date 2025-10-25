@@ -397,6 +397,21 @@ local function performCursorMotion(editor, toDef, opts)
 	return true
 end
 
+local function performMouseMotion(editor, toCtx)
+	local win = editor:getCurrentWindow()
+	if win == nil then
+		return
+	end
+	local inputProperties = editor.typeahead.inputProperties
+	local mouseX, mouseY = inputProperties.mouseX, inputProperties.mouseY
+	if not mouseX or not mouseY then
+		return toCtx
+	end
+	toCtx.x, toCtx.y = win:unproject(mouseX, mouseY)
+	toCtx.wantX = toCtx.x
+	return toCtx
+end
+
 local function performSearchMotion(editor, toCtx, opts)
 	opts = opts or {}
 	local origX, origY = toCtx.x, toCtx.y
@@ -877,6 +892,7 @@ return {
 	makeMotionContext = makeMotionContext,
 	motionContextIntoBounds = motionContextIntoBounds,
 	performCursorMotion = performCursorMotion,
+	performMouseMotion = performMouseMotion,
 	performSearchMotion = performSearchMotion,
 	performWordMotion = performWordMotion,
 	pullCountString = pullCountString,
