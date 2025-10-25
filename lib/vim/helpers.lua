@@ -854,6 +854,33 @@ textObjects = {
 		end
 		return toCtx
 	end},
+	--- Same as line, but selects at least 2 lines (unless at the last line in the buffer)
+	multipleLines = {{linewise = true}, function(editor, toCtx)
+		local buf = editor:getCurrentBuffer()
+		if buf == nil then
+			return
+		end
+		if toCtx.wantX ~= nil then
+		    toCtx.x = toCtx.wantX
+		else
+		    toCtx.wantX = toCtx.x
+		end
+		local count = getRepeatCount1(editor)
+		if count < 2 then
+			count = 2
+		end
+		toCtx.y = toCtx.y + count - 1
+		local numLines = buf:getLineCount()
+		if toCtx.y > numLines then
+		    toCtx.y = numLines
+		end
+		local line = buf:getLine(toCtx.y)
+		local lineLength = safeencoding.len(line)
+		if toCtx.x > lineLength + 1 then  -- do we need "lineLength + 1" in any text objects?
+		    toCtx.x = lineLength + 1
+		end
+		return toCtx
+	end},
 	searchNext = {{exclusive = true}, function(editor, toCtx)
 		editor.hlsearch = true
 		return performSearchMotion(editor, toCtx, {previous = false})

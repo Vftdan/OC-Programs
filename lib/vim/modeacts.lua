@@ -99,6 +99,38 @@ local impendingOperators = {  -- don't trigger operator-pending mode when used f
 		regValue = helpers.registerValueFromText(editor, newTxt, regValue)
 		helpers.setTextObjectAsRegister(editor, to, regValue)
 	end},
+	gJ = {helpers.textObjects.multipleLines, function(editor, to)
+		-- FIXME doesn't work in visual mode if only one line is selected
+		local regValue = helpers.getTextObjectAsRegister(editor, to)
+		if regValue == nil then
+			return
+		end
+		local oldTxt = helpers.getRegisterValueText(editor, regValue)
+		local newTxt = {""}
+		for _, oldLine in ipairs(oldTxt) do
+			newTxt[1] = newTxt[1] .. oldLine
+		end
+		regValue = helpers.registerValueFromText(editor, newTxt, regValue)
+		helpers.setTextObjectAsRegister(editor, to, regValue)
+	end},
+	J = {helpers.textObjects.multipleLines, function(editor, to)
+		-- FIXME doesn't work in visual mode if only one line is selected
+		local regValue = helpers.getTextObjectAsRegister(editor, to)
+		if regValue == nil then
+			return
+		end
+		local oldTxt = helpers.getRegisterValueText(editor, regValue)
+		local newTxt = {""}
+		for i, oldLine in ipairs(oldTxt) do
+			if i > 1 then
+				local indentLen = (strptn.firstNonSpace(oldLine) or safeencoding.len(oldLine) + 1) - 1
+				oldLine = " " .. safeencoding.sub(oldLine, indentLen + 1)
+			end
+			newTxt[1] = newTxt[1] .. oldLine
+		end
+		regValue = helpers.registerValueFromText(editor, newTxt, regValue)
+		helpers.setTextObjectAsRegister(editor, to, regValue)
+	end},
 }
 
 local impendingNormalOperators = {  -- don't exist in visual mode
