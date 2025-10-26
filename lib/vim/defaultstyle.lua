@@ -18,6 +18,7 @@ local mapping = {
 	delimiter = "special",
 	special = {ctermfg=3, guifg=0xFF8000},
 	title = {ctermfg=12, guifg=0x6699FF, reverse=true},  -- Real Vim uses magenta without reversing. This one is from wip.lua instead.
+	operator = "statement",
 }
 
 return {
