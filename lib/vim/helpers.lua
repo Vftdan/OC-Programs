@@ -200,6 +200,12 @@ function getLineSearchMatches(editor, searchString, y)
 	return matches
 end
 
+local function getPasteDataAsRegister(editor)
+	local str = editor.typeahead:getPasteData()
+	local txt = strptn.splitBy(str, "\n")
+	return {lines = txt}
+end
+
 local function getRegisterValueText(editor, regValue)
 	return regValue.lines
 end
@@ -915,6 +921,7 @@ return {
 	findSurroundingWordInLine = findSurroundingWordInLine,
 	findWordInLine = findWordInLine,
 	getLineSearchMatches = getLineSearchMatches,
+	getPasteDataAsRegister = getPasteDataAsRegister,
 	getRegisterValueText = getRegisterValueText,
 	getRepeatCount0 = getRepeatCount0,
 	getRepeatCount1 = getRepeatCount1,

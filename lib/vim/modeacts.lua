@@ -73,11 +73,20 @@ local pasteOperator = function(editor, to)
 	end
 end
 
+local function clipboardPasteOperator(editor, to)
+	local oldReg = helpers.getSelectedRegister(editor)
+	helpers.setSelectedRegister(editor, helpers.getPasteDataAsRegister(editor))
+	pasteOperator(editor, to)
+	helpers.setSelectedRegister(editor, oldReg)
+end
+
 local impendingOperators = {  -- don't trigger operator-pending mode when used from normal mode
 	x = {helpers.textObjects.characterForward, simpleOperators.d},
 	X = {helpers.textObjects.characterBackward, simpleOperators.d},
 	p = {helpers.textObjects.emptyForward, pasteOperator},
 	P = {helpers.textObjects.emptyBackward, pasteOperator},
+	['"+p'] = {helpers.textObjects.emptyForward, clipboardPasteOperator},
+	['"+P'] = {helpers.textObjects.emptyBackward, clipboardPasteOperator},
 	Y = {helpers.textObjects.eol, simpleOperators.y},  -- Not Vi-compatible
 	C = {helpers.textObjects.eol, simpleOperators.c},
 	D = {helpers.textObjects.eol, simpleOperators.d},
@@ -929,10 +938,14 @@ insertActions["<S-insert>"] = insertActions["<C-r>+"]  -- Actually paste
 insertActions["<C-S-v>"] = insertActions["<C-r>+"]
 insertActions["<C-r><insert>"] = insertActions["<C-r>+"]
 insertActions["<C-r><C-v>"] = insertActions["<C-r>+"]
-cmdlineActions["<S-cmdline>"] = cmdlineActions["<C-r>+"]
+cmdlineActions["<S-insert>"] = cmdlineActions["<C-r>+"]
 cmdlineActions["<C-S-v>"] = cmdlineActions["<C-r>+"]
-cmdlineActions["<C-r><cmdline>"] = cmdlineActions["<C-r>+"]
+cmdlineActions["<C-r><insert>"] = cmdlineActions["<C-r>+"]
 cmdlineActions["<C-r><C-v>"] = cmdlineActions["<C-r>+"]
+impendingOperators['"<insert>p'] = impendingOperators['"+p']
+impendingOperators['"<C-v>p'] = impendingOperators['"+p']
+impendingOperators['"<insert>P'] = impendingOperators['"+P']
+impendingOperators['"<C-v>P'] = impendingOperators['"+P']
 
 -- TODO recall history by prefix
 cmdlineActions["<up>"] = cmdlineActions["<S-up>"]

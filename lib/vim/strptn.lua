@@ -436,6 +436,25 @@ local function unescapeBackslash(haystack)
 	return table.concat(builder)
 end
 
+local splitBy = function(haystack, needle, opts)
+	opts = opts or {}
+	if not opts.pattern then
+		needle = escapePtn(needle)
+	end
+	local start = 1
+	local result = {}
+	while start <= #haystack + 1 do
+		local sepStart, sepEnd = haystack:find(needle, start)
+		if not sepStart then
+			table.insert(result, haystack:sub(start))
+			break
+		end
+		table.insert(result, haystack:sub(start, sepStart - 1))
+		start = sepEnd + 1
+	end
+	return result
+end
+
 return {
 	escapePtn = escapePtn,
 	validatePtn = validatePtn,
@@ -451,4 +470,5 @@ return {
 	firstBackslash = firstBackslash,
 	firstUnescapedSpace = firstUnescapedSpace,
 	unescapeBackslash = unescapeBackslash,
+	splitBy = splitBy,
 }
