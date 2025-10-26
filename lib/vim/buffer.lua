@@ -60,7 +60,9 @@ local Buffer = makeClass {
 		local f = self._filename and io.open(self._filename, "r")
 		local lines = {}
 		local cacheRoot = {}
+		local found = false
 		if f ~= nil then
+			found = true
 			local line = f:read()
 			while line ~= nil do
 				lines[#lines + 1] = line
@@ -88,6 +90,7 @@ local Buffer = makeClass {
 		self._undoList[newStateIndex] = newState
 		self._undoList.n = newStateIndex
 		self._undoIndex = newStateIndex
+		return found
 	end,
 	write = function(self, filename)
 		-- TODO writebackup
@@ -271,8 +274,8 @@ local Buffer = makeClass {
 local function fromFile(name)
 	local buf = Buffer()
 	buf:setFilename(name)
-	buf:read()
-	return buf
+	local found = buf:read()
+	return buf, found
 end
 
 return {

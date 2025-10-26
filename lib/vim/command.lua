@@ -327,6 +327,26 @@ local commands = {
 			editor:echoErr("Invalid :syntax subcommand", subCommand)
 		end
 	end,
+	autocmd = function(editor, argStr)
+		local origArgStr = argStr
+		local argSepPos = strptn.firstUnescapedSpace(argStr)
+		if not argSepPos then
+			editor:echoErr("Not enough arguments: autocmd", origArgStr)
+			return
+		end
+		local events = strptn.splitBy(safeencoding.sub(argStr, 1, argSepPos - 1), ",")
+		argStr = safeencoding.sub(argStr, argSepPos)
+		nonBlankPos = strptn.firstNonSpace(argStr)
+		if not nonBlankPos then
+			editor:echoErr("Not enough arguments: autocmd", origArgStr)
+			return
+		end
+		argStr = safeencoding.sub(argStr, nonBlankPos)
+		argSepPos = strptn.firstUnescapedSpace(argStr) or #argStr + 1
+		local glob = safeencoding.sub(argStr, 1, argSepPos - 1)
+		local cbCmd = safeencoding.sub(argStr, argSepPos + 1)
+		editor.autocmdRegistry:register(events, glob, cbCmd)
+	end,
 }
 
 commands.w = commands.write
@@ -335,6 +355,7 @@ commands.nohl = commands.nohlsearch
 commands.so = commands.source
 commands.hi = commands.highlight
 commands.syn = commands.syntax
+commands.au = commands.autocmd
 
 local function execute(editor, cmdStr)
 	local nonBlankPos = strptn.firstNonSpace(cmdStr)

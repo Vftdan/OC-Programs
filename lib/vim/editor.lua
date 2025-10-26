@@ -9,6 +9,7 @@ local textrender = require("vim.platform.textrender")
 local itertools = require("vim.itertools")
 local Trie = require("vim.trie")
 local window = require("vim.window")
+local autocmd = require("vim.autocmd")
 
 local Editor = makeClass {
 	init = function(self)
@@ -37,6 +38,7 @@ local Editor = makeClass {
 		self.searchHistory = {}
 		self.runtimeDirs = {"/etc/vimruntime", "/usr/etc/vimruntime", "/home/.vim"}
 		self.enableSyntax = false
+		self.autocmdRegistry = autocmd.AutocmdRegistry(self)
 	end,
 	isRunning = function(self)
 		return self._running

@@ -110,12 +110,17 @@ local function main(...)
 	-- Initialize
 	local oldState = textrender.enterScreen()
 	local ed = editor.Editor()
-	local buf = buffer.fromFile(filesToEdit[1])
+	local buf, found = buffer.fromFile(filesToEdit[1])
 	ed:registerBuffer(buf)
 	local win = window.withBuffer(buf)
 	ed:setCurrentWindowId(ed:registerWindow(win))
 
 	runInitCommands(ed, preRcCommands, postRcCommands, rcFile, gotoLine)
+	if found then
+		ed.autocmdRegistry:fireCurrentBuffer("bufread")
+	else
+		ed.autocmdRegistry:fireCurrentBuffer("bufnewfile")
+	end
 	ed:run()
 	textrender.leaveScreen(oldState)
 end

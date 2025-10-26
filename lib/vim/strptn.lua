@@ -8,6 +8,7 @@ local NONSPACE_PTN = "%S+"
 local SPACE_PTN = "%s+"
 local BACKSLASH = "\\"
 local BACKSLASH_OR_SPACE_PTN = "[%s\\]"
+local GLOB_CHAR_PTN = "[%*%?]"
 local MAGIC_CHARS = "().%+-*?[^$"
 local MAGIC_CHARS_PTN
 
@@ -24,7 +25,8 @@ local function prependPercent(s)
 end
 
 local function escapePtn(s)
-	return s:gsub(MAGIC_CHARS_PTN, prependPercent)
+	local result = s:gsub(MAGIC_CHARS_PTN, prependPercent)
+	return result
 end
 
 local function tokenizePtn(s)
@@ -455,6 +457,28 @@ local splitBy = function(haystack, needle, opts)
 	return result
 end
 
+local function fromGlob(gl)
+	-- TODO square brackets
+	local start = 1
+	local builder = {}
+	while start <= #gl do
+		local i = gl:find(GLOB_CHAR_PTN, start)
+		if not i then
+			break
+		end
+		table.insert(builder, escapePtn(gl:sub(start, i - 1)))
+		local ch = gl:sub(i, i)
+		if ch == "?" then
+			table.insert(builder, ".")
+		else
+			table.insert(builder, ".*")
+		end
+		start = i + 1
+	end
+	table.insert(builder, escapePtn(gl:sub(start)))
+	return table.concat(builder)
+end
+
 return {
 	escapePtn = escapePtn,
 	validatePtn = validatePtn,
@@ -471,4 +495,5 @@ return {
 	firstUnescapedSpace = firstUnescapedSpace,
 	unescapeBackslash = unescapeBackslash,
 	splitBy = splitBy,
+	fromGlob = fromGlob,
 }
