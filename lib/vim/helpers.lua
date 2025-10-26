@@ -891,10 +891,12 @@ textObjects = {
 	end},
 	searchNext = {{exclusive = true}, function(editor, toCtx)
 		editor.hlsearch = editor.triggerHlsearch
+		editor:invalidateDisplay()
 		return performSearchMotion(editor, toCtx, {previous = false})
 	end},
 	searchPrevious = {{exclusive = true}, function(editor, toCtx)
 		editor.hlsearch = editor.triggerHlsearch
+		editor:invalidateDisplay()
 		return performSearchMotion(editor, toCtx, {previous = true})
 	end},
 }

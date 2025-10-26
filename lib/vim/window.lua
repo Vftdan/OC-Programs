@@ -225,9 +225,15 @@ local Window = makeClass {
 		self._scrollX = 0
 		self._scrollY = 0
 		self._focused = false
+		self._skipNonce = {}
+		self._renderedCursorX = nil
+		self._renderedCursorY = nil
 	end,
 	setEditor = function(self, editor)
 		self._editor = editor
+	end,
+	invalidateDisplay = function(self)
+		self._skipNonce = {}
 	end,
 	render = function(self)
 		local eobStyle = self._editor:interpretStyleStack{"normal", "endofbuffer"}
@@ -254,61 +260,79 @@ local Window = makeClass {
 			searchString = helpers.getSearchString(self._editor)
 		end
 		for i = 1, height do
-			textrender.setCursorPos(1, i)
 			local lineNr = i + self._scrollY
-			if lineNr <= n then
-				local nrString = tostring(lineNr)
-				while safeencoding.len(nrString) < maxNrDigits do
-					nrString = " " .. nrString
+			local canSkip = true
+			local skipInfo = self.currentBuffer:getScopedLineCache(lineNr, self._skipNonce)
+			canSkip = canSkip and skipInfo and skipInfo.lineNr == lineNr
+			if self._renderedCursorY == cursorY then
+				if cursorY == lineNr then
+					canSkip = canSkip and self._renderedCursorX == cursorX
 				end
-				local nrChunk = {nrString .. " "}
-				itertools.update(nrChunk, lineNrStyle)
-				local blitData = {nrChunk}
-
-				local psl = self:_getPrintableStyledLine(lineNr)
-				if self._editor.enableSyntax then
-					local regions = self.currentBuffer.syntaxRegistry:getRegions(self.currentBuffer, lineNr)
-					psl = printableStyledAddSyntaxRegions(psl, regions)
-				end
-				if searchString then
-					local matches = helpers.getLineSearchMatches(self._editor, searchString, lineNr)
-					if matches then
-						psl = printableStyledAddHlsearch(psl, matches)
-					end
-				end
-				if visualBoundaries and lineNr >= visualBoundaries[2] and lineNr <= visualBoundaries[4] then
-					local begX, edX = 1, 1
-					if #psl > 0 then
-						edX = psl[#psl].lastCodePoint
-					end
-					if lineNr == visualBoundaries[2] then
-						begX = visualBoundaries[1]
-					end
-					if lineNr == visualBoundaries[4] then
-						edX = visualBoundaries[3]
-					end
-					psl = printableStyledAddVisual(psl, begX, edX)
-				end
-				psl = printableStyledToView(psl, self._scrollX, contentWidth)
-				if cursorViewportY == i and cursorViewportX > 0 then
-					local cursorStyleName = "cursornc"
-					if self._focused then
-						cursorStyleName = "cursor"
-					end
-					psl = printableStyledAddCursor(psl, cursorX, cursorStyleName)  -- Cursor is bound to codepoints rather than columns, and codepoints are not affected by scrolling
-				end
-				for _, entry in ipairs(psl) do
-					local chunk = {entry.string}
-					local style = self._editor:interpretStyleStack(entry.styleNames)
-					itertools.update(chunk, style)
-					table.insert(blitData, chunk)
-				end
-
-				textrender.blitAll(blitData)
 			else
-				textrender.blitAll{
-					eobChunk,
-				}
+				canSkip = canSkip and lineNr ~= cursorY
+				canSkip = canSkip and lineNr ~= self._renderedCursorY
+			end
+			self._renderedCursorX = nil
+			self._renderedCursorY = nil
+			if not canSkip then
+				textrender.setCursorPos(1, i)
+				if lineNr <= n then
+					local nrString = tostring(lineNr)
+					while safeencoding.len(nrString) < maxNrDigits do
+						nrString = " " .. nrString
+					end
+					local nrChunk = {nrString .. " "}
+					itertools.update(nrChunk, lineNrStyle)
+					local blitData = {nrChunk}
+
+					local psl = self:_getPrintableStyledLine(lineNr)
+					if self._editor.enableSyntax then
+						local regions = self.currentBuffer.syntaxRegistry:getRegions(self.currentBuffer, lineNr)
+						psl = printableStyledAddSyntaxRegions(psl, regions)
+					end
+					if searchString then
+						local matches = helpers.getLineSearchMatches(self._editor, searchString, lineNr)
+						if matches then
+							psl = printableStyledAddHlsearch(psl, matches)
+						end
+					end
+					if visualBoundaries and lineNr >= visualBoundaries[2] and lineNr <= visualBoundaries[4] then
+						local begX, edX = 1, 1
+						if #psl > 0 then
+							edX = psl[#psl].lastCodePoint
+						end
+						if lineNr == visualBoundaries[2] then
+							begX = visualBoundaries[1]
+						end
+						if lineNr == visualBoundaries[4] then
+							edX = visualBoundaries[3]
+						end
+						psl = printableStyledAddVisual(psl, begX, edX)
+					end
+					psl = printableStyledToView(psl, self._scrollX, contentWidth)
+					if cursorViewportY == i and cursorViewportX > 0 then
+						local cursorStyleName = "cursornc"
+						if self._focused then
+							cursorStyleName = "cursor"
+						end
+						psl = printableStyledAddCursor(psl, cursorX, cursorStyleName)  -- Cursor is bound to codepoints rather than columns, and codepoints are not affected by scrolling
+						self._renderedCursorX = cursorX
+						self._renderedCursorY = cursorY
+					end
+					for _, entry in ipairs(psl) do
+						local chunk = {entry.string}
+						local style = self._editor:interpretStyleStack(entry.styleNames)
+						itertools.update(chunk, style)
+						table.insert(blitData, chunk)
+					end
+
+					textrender.blitAll(blitData)
+					self.currentBuffer:setScopedLineCache(lineNr, self._skipNonce, {lineNr = lineNr})
+				else
+					textrender.blitAll{
+						eobChunk,
+					}
+				end
 			end
 		end
 
@@ -345,6 +369,7 @@ local Window = makeClass {
 	setScrollAmount = function(self, x, y)
 		self._scrollX = x
 		self._scrollY = y
+		self:invalidateDisplay()
 	end,
 	_getPrintableStyledLine = function(self, y)
 		local result = self.currentBuffer:getScopedLineCache(y, "printableStyled")
@@ -359,10 +384,29 @@ local Window = makeClass {
 		return result
 	end,
 	setVisualSelection = function(self, toCtx)
+		if self._visualSelection then
+			local begY, edY = self._visualSelection.initialY, self._visualSelection.y
+			if begY > edY then
+				begY, edY = edY, begY
+			end
+			for i = begY, edY do
+				self.currentBuffer:setScopedLineCache(i, self._skipNonce, nil)
+			end
+		end
+		if toCtx then
+			local begY, edY = toCtx.initialY, toCtx.y
+			if begY > edY then
+				begY, edY = edY, begY
+			end
+			for i = begY, edY do
+				self.currentBuffer:setScopedLineCache(i, self._skipNonce, nil)
+			end
+		end
 		self._visualSelection = toCtx
 	end,
 	setFocused = function(self, flag)
 		self._focused = flag
+		self:invalidateDisplay()
 	end,
 	isFocused = function(self)
 		return self._focused

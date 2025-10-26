@@ -351,6 +351,7 @@ simpleMotions = {
 		helpers.setSearchString(editor, searchString)
 		helpers.setSearchBackward(editor, false)
 		editor.hlsearch = editor.triggerHlsearch
+		editor:invalidateDisplay()
 		return helpers.performSearchMotion(editor, toCtx)
 	end},
 	["?"] = {{exclusive = true}, function(editor, toCtx)
@@ -361,6 +362,7 @@ simpleMotions = {
 		helpers.setSearchString(editor, searchString)
 		helpers.setSearchBackward(editor, true)
 		editor.hlsearch = editor.triggerHlsearch
+		editor:invalidateDisplay()
 		return helpers.performSearchMotion(editor, toCtx)
 	end},
 	n = helpers.textObjects.searchNext,

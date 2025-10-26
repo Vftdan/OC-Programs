@@ -114,6 +114,7 @@ local commands = {
 	end,
 	nohlsearch = function(editor, argStr)
 		editor.hlsearch = false
+		editor:invalidateDisplay()
 	end,
 	set = function(editor, argStr)
 		optionCommand(editor, argStr)
@@ -168,6 +169,7 @@ local commands = {
 			else
 				editor.styleRegistry:link(groupName, targetName)
 			end
+			editor:invalidateDisplay()
 		else
 			local tbl = {}
 			while args[i] do
@@ -207,6 +209,7 @@ local commands = {
 			else
 				editor.styleRegistry:define(groupName, tbl)
 			end
+			editor:invalidateDisplay()
 		end
 	end,
 	syntax = function(editor, argStr)
@@ -225,12 +228,14 @@ local commands = {
 			end
 			-- TODO invalidate some syntax caches
 			editor.enableSyntax = true
+			editor:invalidateDisplay()
 		elseif subCommand == "off" then
 			if i <= #args then
 				editor:echoErr("Too many arguments: syntax", argStr)
 				return
 			end
 			editor.enableSyntax = false
+			editor:invalidateDisplay()
 		elseif subCommand == "match" then
 			local buf = editor:getCurrentBuffer()
 			if buf == nil then
@@ -278,6 +283,7 @@ local commands = {
 				return
 			end
 			buf.syntaxRegistry:defineMatch(groupName, pattern, options)
+			editor:invalidateDisplay()
 		elseif subCommand == "clear" then
 			if i <= #args then
 				editor:echoErr("Too many arguments: syntax", argStr)
@@ -288,6 +294,7 @@ local commands = {
 				return
 			end
 			buf.syntaxRegistry:clear()
+			editor:invalidateDisplay()
 		else
 			editor:echoErr("Invalid :syntax subcommand", subCommand)
 		end

@@ -100,6 +100,11 @@ local Editor = makeClass {
 			helpers.runMode(self, modes.normalMode)
 		end
 	end,
+	invalidateDisplay = function(self)
+		for _, win in ipairs(self._windows) do
+			win:invalidateDisplay()
+		end
+	end,
 	render = function(self)
 		if not self._windows[1] then
 			self:terminate()
