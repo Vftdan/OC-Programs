@@ -24,9 +24,9 @@ syn match luaDelimiter /[,%.:%(%){}%[%]]/
 syn match luaOperator /%.%./
 syn match luaKeyword /%.%.%./
 
-syn match luaNumber /0x%d+/
 syn match luaNumber /%d+/
 syn match luaNumber /%d*%.%d+/
+syn match luaNumber /0x%x+/
 
 syn match luaString /"[^"]*"/
 syn match luaString /%[%[.-%]%]/
