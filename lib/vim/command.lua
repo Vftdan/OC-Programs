@@ -347,6 +347,9 @@ local commands = {
 		local cbCmd = safeencoding.sub(argStr, argSepPos + 1)
 		editor.autocmdRegistry:register(events, glob, cbCmd)
 	end,
+	setfiletype = function(editor, argStr)
+		option.options.syntax:set(editor, {value = argStr, scope = "local"})
+	end,
 }
 
 commands.w = commands.write
@@ -356,6 +359,7 @@ commands.so = commands.source
 commands.hi = commands.highlight
 commands.syn = commands.syntax
 commands.au = commands.autocmd
+commands.setf = commands.setfiletype
 
 local function execute(editor, cmdStr)
 	local nonBlankPos = strptn.firstNonSpace(cmdStr)
