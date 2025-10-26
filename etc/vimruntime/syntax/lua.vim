@@ -1,22 +1,6 @@
 syn match luaIdentifier /%w+/
 
-" TODO somehow prevent the keywords being matched as a prefix
-syn match luaKeyword /local/
-syn match luaKeyword /function/
-syn match luaKeyword /if/
-syn match luaKeyword /for/
-syn match luaKeyword /in/
-syn match luaKeyword /while/
-syn match luaKeyword /then/
-syn match luaKeyword /do/
-syn match luaKeyword /end/
-syn match luaKeyword /return/
-syn match luaKeyword /break/
-syn match luaKeyword /else/
-syn match luaKeyword /elseif/
-syn match luaKeyword /or/
-syn match luaKeyword /and/
-syn match luaKeyword /not/
+syn keyword luaKeyword local function if for in while then do end return break else elseif or and not
 
 syn match luaOperator "[%+%-%*/%%=<>#]"
 syn match luaOperator /~=/

@@ -284,6 +284,34 @@ local commands = {
 			end
 			buf.syntaxRegistry:defineMatch(groupName, pattern, options)
 			editor:invalidateDisplay()
+		elseif subCommand == "keyword" then
+			local buf = editor:getCurrentBuffer()
+			if buf == nil then
+				return
+			end
+			local groupName = args[i]
+			i = i + 1
+			if not groupName then
+				editor:echoErr("Not enough arguments: highlight", argStr)
+				return
+			end
+			local pattern
+			local options = {}
+			local optionsEnded = false
+			local kws = {}
+			while args[i] do
+				local arg = args[i]
+				i = i + 1
+				if not optionsEnded and false then  -- TODO
+					options[arg] = true
+				elseif not optionsEnded and arg == "--" then
+					optionsEnded = true
+				else
+					table.insert(kws, arg)
+				end
+			end
+			buf.syntaxRegistry:defineKeyword(groupName, kws, options)
+			editor:invalidateDisplay()
 		elseif subCommand == "clear" then
 			if i <= #args then
 				editor:echoErr("Too many arguments: syntax", argStr)

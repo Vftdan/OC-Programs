@@ -120,6 +120,25 @@ local function thresholdsToRegions(thresholds, line)
 	return regions
 end
 
+local function findFirstAccepting(line, rule, ptn, start)
+	if not rule then
+		return nil, nil
+	end
+	ptn = ptn or rule.pattern
+	start = start or 1
+	while start <= #line do
+		local beg, ed = line:find(ptn, start)
+		if not beg then
+			return nil, nil
+		end
+		if rule:acceptsAt(line, beg, ed) then
+			return beg, ed
+		end
+		start = beg + 1
+	end
+	return nil, nil
+end
+
 local MatchRule = makeClass {
 	init = function(self, pattern, groupName)
 		self.pattern = pattern
@@ -134,6 +153,35 @@ local MatchRule = makeClass {
 	end,
 	onPatternEnd = function(self, enteredStack, availableStack)
 		leave(enteredStack, availableStack, self)
+	end,
+	acceptsAt = function(self, line, beg, ed)
+		return true
+	end,
+}
+
+local KeywordRule = makeClass {
+	init = function(self, pattern, groupName)
+		self.pattern = pattern
+		self.groupName = groupName
+	end,
+	onPatternStart = function(self, enteredStack, availableStack)
+		enter(enteredStack, self)
+		resetAvailable(availableStack)
+	end,
+	onLeave = function(self, enteredStack, availableStack)
+		restoreAvailable(availableStack)
+	end,
+	onPatternEnd = function(self, enteredStack, availableStack)
+		leave(enteredStack, availableStack, self)
+	end,
+	acceptsAt = function(self, line, beg, ed)
+		if line:sub(beg - 1, beg - 1):find("%w") then
+			return false
+		end
+		if line:sub(ed + 1, ed + 1):find("%w") then
+			return false
+		end
+		return true
 	end,
 }
 
@@ -156,6 +204,16 @@ local Syntax = makeClass {
 		self._lastPriority = priority
 		self._rules[pattern] = MatchRule(pattern, groupName)
 		self._priorities[pattern] = priority
+		self:_invalidate()
+	end,
+	defineKeyword = function(self, groupName, kws, opts)
+		local priority = self._lastPriority + 1
+		self._lastPriority = priority
+		for _, kw in ipairs(kws) do
+			local pattern = strptn.escapePtn(kw)
+			self._rules[pattern] = KeywordRule(pattern, groupName)
+			self._priorities[pattern] = priority
+		end
 		self:_invalidate()
 	end,
 	_getLineCache = function(self, buf, lineNr)
@@ -204,7 +262,7 @@ local Syntax = makeClass {
 		local start = 1
 		local nextRuleBounds = {}
 		for pattern, rule in pairs(availableStack[#availableStack]) do
-			local m = {line:find(pattern, start)}
+			local m = {findFirstAccepting(line, rule, pattern, start)}
 			if m[1] then
 				nextRuleBounds[pattern] = m
 			end
@@ -215,7 +273,7 @@ local Syntax = makeClass {
 			local minPattern = nil
 			for pattern, m in pairs(nextRuleBounds) do
 				if m[1] < start then
-					m = {line:find(pattern, start)}
+					m = {findFirstAccepting(line, availableStack[#availableStack][pattern], pattern, start)}
 					if not m[1] then
 						m = nil
 					end
@@ -241,7 +299,7 @@ local Syntax = makeClass {
 			pushPatternEnd(patternEnds, patternEnd, rule)
 			-- TODO contained patterns
 			start = patternEnd + 1
-			local newM = {line:find(minPattern, start)}
+			local newM = {findFirstAccepting(line, rule, minPattern, start)}
 			if not newM[1] then
 				newM = nil
 			end
