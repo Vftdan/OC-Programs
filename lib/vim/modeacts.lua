@@ -930,9 +930,7 @@ local cmdlineActions = {
 }
 
 -- Host client paste aliases (<insert> in OC and <C-v> in CC are used to trigger paste event)
-normalActions["<S-insert>"] = normalActions["@+"]  -- Interpret clipboard data as Vim controls!
-normalActions["<C-S-v>"] = normalActions["@+"]
-normalActions["@<insert>"] = normalActions["@+"]
+normalActions["@<insert>"] = normalActions["@+"]  -- Interpret clipboard data as Vim controls!
 normalActions["@<C-v>"] = normalActions["@+"]
 insertActions["<S-insert>"] = insertActions["<C-r>+"]  -- Actually paste
 insertActions["<C-S-v>"] = insertActions["<C-r>+"]
@@ -946,6 +944,8 @@ impendingOperators['"<insert>p'] = impendingOperators['"+p']
 impendingOperators['"<C-v>p'] = impendingOperators['"+p']
 impendingOperators['"<insert>P'] = impendingOperators['"+P']
 impendingOperators['"<C-v>P'] = impendingOperators['"+P']
+impendingOperators["<S-insert>"] = impendingOperators['"+p']
+impendingOperators["<C-S-v>"] = impendingOperators['"+p']
 
 -- TODO recall history by prefix
 cmdlineActions["<up>"] = cmdlineActions["<S-up>"]
