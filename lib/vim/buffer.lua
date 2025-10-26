@@ -1,6 +1,7 @@
 local makeClass = require("vim.makeclass")
 local safeencoding = require("vim.safeencoding")
 local itertools = require("vim.itertools")
+local syntax = require("vim.syntax")
 
 local weakMapMeta = {__mode = "k"}
 local function weakMap()
@@ -13,6 +14,7 @@ local Buffer = makeClass {
 		self._cacheRoot = {}
 		self._undoList = {{children = {}}, n = 1}
 		self._undoIndex = 1
+		self.syntaxRegistry = syntax.Syntax()
 	end,
 	setEditor = function(self, editor)
 		self._editor = editor

@@ -159,7 +159,7 @@ local commands = {
 				editor:echoErr("Not enough arguments: highlight", argStr)
 				return
 			end
-			if i < #args then
+			if i <= #args then
 				editor:echoErr("Too many arguments: highlight", argStr)
 				return
 			end
@@ -192,7 +192,7 @@ local commands = {
 					end
 				elseif key == "cterm" or key == "gui" then
 					for item in value:gmatch("[^,]+") do
-						if item == "bold" or item == "itelic" or item == "underline" or item == "reverse" then
+						if item == "bold" or item == "italic" or item == "underline" or item == "reverse" then
 							tbl[item] = true
 						else
 							editor:echoErr("Illegal value:", item)
@@ -209,6 +209,89 @@ local commands = {
 			end
 		end
 	end,
+	syntax = function(editor, argStr)
+		local args = splitArgs(argStr)
+		local i = 1
+		local subCommand = args[i]
+		i = i + 1
+		if not subCommand then
+			editor:echoErr("Not enough arguments: syntax", argStr)
+			return
+		end
+		if subCommand == "on" then
+			if i <= #args then
+				editor:echoErr("Too many arguments: syntax", argStr)
+				return
+			end
+			-- TODO invalidate some syntax caches
+			editor.enableSyntax = true
+		elseif subCommand == "off" then
+			if i <= #args then
+				editor:echoErr("Too many arguments: syntax", argStr)
+				return
+			end
+			editor.enableSyntax = false
+		elseif subCommand == "match" then
+			local buf = editor:getCurrentBuffer()
+			if buf == nil then
+				return
+			end
+			local groupName = args[i]
+			i = i + 1
+			if not groupName then
+				editor:echoErr("Not enough arguments: highlight", argStr)
+				return
+			end
+			local pattern
+			local options = {}
+			while args[i] do
+				local arg = args[i]
+				i = i + 1
+				if arg:find("^%W") then
+					local argLen = safeencoding.len(arg)
+					local begChar = safeencoding.sub(arg, 1, 1)
+					local edChar = safeencoding.sub(arg, argLen, argLen)
+					if begChar ~= edChar then
+						editor:echoErr("Pattern delimiter not found:", arg)
+						return
+					end
+					local searchString = safeencoding.sub(arg, 2, argLen - 1)
+					if searchString:sub(1, 2) == "\\V" or searchString:sub(1, 2) == "\\M" then
+						-- nomagic
+						searchString = strptn.escapePtn(searchString:sub(3))
+					end
+					searchString = strptn.unescapeBackslash(searchString)
+					local success, reason = strptn.validatePtn(searchString)
+					if not success then
+						editor:echoErr(("Invalid search string (%s): %s"):format(reason, searchString))
+						return
+					end
+					pattern = searchString
+				elseif arg == "keepend" or arg == "excludenl" then
+					options[arg] = true
+				else
+					editor:echoErr("Invalid argument:", arg)
+				end
+			end
+			if not pattern then
+				editor:echoErr("Missing pattern: syntax", argStr)
+				return
+			end
+			buf.syntaxRegistry:defineMatch(groupName, pattern, options)
+		elseif subCommand == "clear" then
+			if i <= #args then
+				editor:echoErr("Too many arguments: syntax", argStr)
+				return
+			end
+			local buf = editor:getCurrentBuffer()
+			if buf == nil then
+				return
+			end
+			buf.syntaxRegistry:clear()
+		else
+			editor:echoErr("Invalid :syntax subcommand", subCommand)
+		end
+	end,
 }
 
 commands.w = commands.write
@@ -216,6 +299,7 @@ commands.q = commands.quit
 commands.nohl = commands.nohlsearch
 commands.so = commands.source
 commands.hi = commands.highlight
+commands.syn = commands.syntax
 
 local function execute(editor, cmdStr)
 	local nonBlankPos = strptn.firstNonSpace(cmdStr)

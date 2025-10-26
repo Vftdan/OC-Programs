@@ -118,7 +118,7 @@ local function printableStyledToView(orig, scrollX, contentWidth)
 	return result
 end
 
-local function printableStyledAddHighlight(orig, lineBegX, lineEdX, styleName)
+local function printableStyledAddHighlight(orig, lineBegX, lineEdX, styleNames)
 	local result = {}
 	for _, entry in ipairs(orig) do
 		if lineEdX < entry.firstCodePoint or lineBegX > entry.lastCodePoint then
@@ -154,7 +154,9 @@ local function printableStyledAddHighlight(orig, lineBegX, lineEdX, styleName)
 			end
 			local s = safeencoding.sub(entry.string, begX, visualEdX)
 			local styleWithVisual = itertools.collect(ipairs(entry.styleNames))
-			styleWithVisual[#styleWithVisual + 1] = styleName
+			for _, styleName in ipairs(styleNames) do
+				styleWithVisual[#styleWithVisual + 1] = styleName
+			end
 			local newEntry = {
 				string = s,
 				styleNames = styleWithVisual,
@@ -191,11 +193,11 @@ local function printableStyledAddHighlight(orig, lineBegX, lineEdX, styleName)
 end
 
 local function printableStyledAddVisual(orig, lineBegX, lineEdX)
-	return printableStyledAddHighlight(orig, lineBegX, lineEdX, "visual")
+	return printableStyledAddHighlight(orig, lineBegX, lineEdX, {"visual"})
 end
 
 local function printableStyledAddCursor(orig, cursorX, styleName)
-	return printableStyledAddHighlight(orig, cursorX, cursorX, styleName)
+	return printableStyledAddHighlight(orig, cursorX, cursorX, {styleName})
 end
 
 local function printableStyledAddHlsearch(orig, matches)
@@ -204,7 +206,15 @@ local function printableStyledAddHlsearch(orig, matches)
 		if lineEdX < lineBegX then
 			lineEdX = lineBegX
 		end
-		orig = printableStyledAddHighlight(orig, lineBegX, lineEdX, "search")
+		orig = printableStyledAddHighlight(orig, lineBegX, lineEdX, {"search"})
+	end
+	return orig
+end
+
+local function printableStyledAddSyntaxRegions(orig, regions)
+	-- TODO avoid quadratic complexity
+	for _, region in ipairs(regions) do
+		orig = printableStyledAddHighlight(orig, region.firstCodePoint, region.lastCodePoint, region.styleNames)
 	end
 	return orig
 end
@@ -256,6 +266,10 @@ local Window = makeClass {
 				local blitData = {nrChunk}
 
 				local psl = self:_getPrintableStyledLine(lineNr)
+				if self._editor.enableSyntax then
+					local regions = self.currentBuffer.syntaxRegistry:getRegions(self.currentBuffer, lineNr)
+					psl = printableStyledAddSyntaxRegions(psl, regions)
+				end
 				if searchString then
 					local matches = helpers.getLineSearchMatches(self._editor, searchString, lineNr)
 					if matches then

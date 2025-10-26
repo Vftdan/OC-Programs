@@ -439,6 +439,7 @@ end
 return {
 	escapePtn = escapePtn,
 	validatePtn = validatePtn,
+	unitPointIndex = unitPointIndex,
 	findAll = findAll,
 	findWordBoundaries = findWordBoundaries,
 	findNonSpaceBoundaries = findNonSpaceBoundaries,

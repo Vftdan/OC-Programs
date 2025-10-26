@@ -35,7 +35,8 @@ local Editor = makeClass {
 		self.triggerHlsearch = false
 		self.commandHistory = {}
 		self.searchHistory = {}
-		self.runtimeDirs = {"/etc/vimruntime", "/home/.vim"}
+		self.runtimeDirs = {"/etc/vimruntime", "/usr/etc/vimruntime", "/home/.vim"}
+		self.enableSyntax = false
 	end,
 	isRunning = function(self)
 		return self._running

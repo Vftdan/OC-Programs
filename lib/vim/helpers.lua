@@ -547,6 +547,7 @@ local function pullSearchString(editor, backward)
 		-- nomagic
 		searchString = strptn.escapePtn(searchString:sub(3))
 	end
+	searchString = strptn.unescapeBackslash(searchString)
 	local success, reason = strptn.validatePtn(searchString)
 	if not success then
 		editor:echoErr(("Invalid search string (%s): %s"):format(reason, searchString))
