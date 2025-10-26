@@ -50,15 +50,55 @@ local BooleanOption = makeClass {
 	end,
 }
 
+local StringOption = makeClass {
+	init = function(self, name, setCallback, getCallback)
+		self.name = name
+		self._setCallback = setCallback
+		self._getCallback = getCallback
+	end,
+	set = function(self, editor, opts)
+		opts = opts or {}
+		local value = opts.value
+		self._setCallback(editor, value, {scope = opts.scope, name = self.name})
+	end,
+	query = function(self, editor, opts)
+		opts = opts or {}
+		local value = self._getCallback(editor, {scope = opts.scope, name = self.name}) or ""
+		editor:echo(("%s=%s"):format(self.name, value))
+	end,
+	add = function(self, editor, opts)
+		opts = opts or {}
+		local value = self._getCallback(editor, {scope = opts.scope, name = self.name}) or ""
+		value = value .. opts.value
+		self._setCallback(editor, value, {scope = opts.scope, name = self.name})
+	end,
+}
+
 local options = {
 	hlsearch = BooleanOption("hlsearch", function(editor, value, opts)
 		editor.triggerHlsearch = value
 	end, function(editor, opts)
 		return editor.triggerHlsearch
 	end),
+	syntax = StringOption("syntax", function(editor, value, opts)
+		local buf = editor:getCurrentBuffer()
+		if not buf then
+			return
+		end
+		buf.syntaxName = value
+		buf.syntaxRegistry:clear()
+		require("vim.command").runtimeFile(editor, ("syntax/%s.vim"):format(value))
+	end, function(editor, opts)
+		local buf = editor:getCurrentBuffer()
+		if not buf then
+			return nil
+		end
+		return buf.syntaxName
+	end),
 }
 
 options.hl = options.hlsearch
+options.syn = options.syntax
 
 return {
 	options = options,

@@ -15,6 +15,7 @@ local Buffer = makeClass {
 		self._undoList = {{children = {}}, n = 1}
 		self._undoIndex = 1
 		self.syntaxRegistry = syntax.Syntax()
+		self.syntaxName = ""
 	end,
 	setEditor = function(self, editor)
 		self._editor = editor
