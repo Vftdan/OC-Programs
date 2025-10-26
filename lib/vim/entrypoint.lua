@@ -12,6 +12,12 @@ local function runInitCommands(editor, preRcCommands, postRcCommands, rcFile, go
 			return
 		end
 	end
+	if rcFile ~= "NONE" then
+		command.runtimeFile(editor, "defaults.vim", true)
+		if not editor:isRunning() then
+			return
+		end
+	end
 	if rcFile ~= "NORC" and rcFile ~= "NONE" then
 		command.sourceFile(editor, rcFile)
 		if not editor:isRunning() then
