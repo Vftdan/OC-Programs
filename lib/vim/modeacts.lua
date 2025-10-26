@@ -736,6 +736,10 @@ local insertActions = {
 		helpers.expandPaste(editor, {noModeMap = true, noLangMap = true})
 		return false
 	end,
+	["<S-insert>"] = function(editor)
+		helpers.insertTextAtCursor(editor, helpers.getRegisterValueText(editor, helpers.getPasteDataAsRegister(editor)))
+		return false
+	end,
 	["<C-v>x"] = function(editor)
 		local charCode = 0
 		for _ = 1, 2 do
@@ -932,20 +936,19 @@ local cmdlineActions = {
 -- Host client paste aliases (<insert> in OC and <C-v> in CC are used to trigger paste event)
 normalActions["@<insert>"] = normalActions["@+"]  -- Interpret clipboard data as Vim controls!
 normalActions["@<C-v>"] = normalActions["@+"]
-insertActions["<S-insert>"] = insertActions["<C-r>+"]  -- Actually paste
-insertActions["<C-S-v>"] = insertActions["<C-r>+"]
-insertActions["<C-r><insert>"] = insertActions["<C-r>+"]
+insertActions["<C-r><insert>"] = insertActions["<C-r>+"]  -- Interpret clipboard data as inserted keys (almost like paste, but slow)
 insertActions["<C-r><C-v>"] = insertActions["<C-r>+"]
 cmdlineActions["<S-insert>"] = cmdlineActions["<C-r>+"]
 cmdlineActions["<C-S-v>"] = cmdlineActions["<C-r>+"]
 cmdlineActions["<C-r><insert>"] = cmdlineActions["<C-r>+"]
 cmdlineActions["<C-r><C-v>"] = cmdlineActions["<C-r>+"]
-impendingOperators['"<insert>p'] = impendingOperators['"+p']
+impendingOperators['"<insert>p'] = impendingOperators['"+p']  -- Actually paste
 impendingOperators['"<C-v>p'] = impendingOperators['"+p']
 impendingOperators['"<insert>P'] = impendingOperators['"+P']
 impendingOperators['"<C-v>P'] = impendingOperators['"+P']
 impendingOperators["<S-insert>"] = impendingOperators['"+p']
 impendingOperators["<C-S-v>"] = impendingOperators['"+p']
+insertActions["<C-S-v>"] = insertActions["<S-insert>"]
 
 -- TODO recall history by prefix
 cmdlineActions["<up>"] = cmdlineActions["<S-up>"]
