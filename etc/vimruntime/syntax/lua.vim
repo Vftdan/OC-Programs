@@ -1,6 +1,6 @@
 syn match luaIdentifier /%w+/
 
-syn keyword luaKeyword local function if for in while then do end return break else elseif or and not
+syn keyword luaKeyword local function if for in while then do end repeat until return break else elseif or and not
 syn keyword luaConstant true false nil
 
 syn match luaOperator "[%+%-%*/%%=<>#]"
