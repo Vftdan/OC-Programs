@@ -229,18 +229,127 @@ local function statusLineDataToPrintableStyled(data, contentWidth, focused)
 	end
 	local printableStyledCells = {}
 	local cellLengthSum = 0
+	local preTruncateLengthSum = 0
 	for i, s in ipairs(data.cells) do
 		local psc = toPrintableStyled(s)
 		printableStyledCells[i] = psc
 		local lastEntry = psc[#psc]
 		if lastEntry then
-			cellLengthSum = cellLengthSum + lastEntry.lastColumn
+			local cellLength = lastEntry.lastColumn
+			cellLengthSum = cellLengthSum + cellLength
+			if i < data.truncatePoint[1] then
+				preTruncateLengthSum = preTruncateLengthSum + cellLength
+			elseif i == data.truncatePoint[1] then
+				local offset = data.truncatePoint[2]  -- TODO: find the column offset of the matching psc entry instead
+				if offset > cellLength then
+					offset = cellLength
+				end
+				preTruncateLengthSum = preTruncateLengthSum + offset
+			end
 		end
 	end
+	local postTruncateLengthSum = cellLengthSum - preTruncateLengthSum
 	local remainingLength = contentWidth - cellLengthSum
 	local dropLength = -remainingLength
 	if remainingLength < 0 then
-		remainingLength = 0
+		local psc = printableStyledCells[data.truncatePoint[1]] or {}
+		local colAdjustment = 0
+		for i = 1, #psc do
+			local entry = psc[i]
+			if entry.lastCodePoint >= data.truncatePoint[2] then
+				local offset = data.truncatePoint[2] - entry.firstCodePoint
+				if offset < 0 then
+					offset = 0
+				end
+				local entryWidth = entry.lastColumn - entry.firstColumn + 1
+				entry.firstColumn = entry.firstColumn - colAdjustment
+				entry.lastColumn = entry.lastColumn - colAdjustment
+				if offset == 0 and dropLength >= entryWidth then
+					colAdjustment = colAdjustment + entryWidth
+					dropLength = dropLength - entryWidth
+					remainingLength = remainingLength + entryWidth
+					cellLengthSum = cellLengthSum - entryWidth
+					entry.string = ""
+					entry.lastColumn = entry.firstColumn - 1
+				elseif dropLength > 0 then
+					local amount = entryWidth - offset
+					if amount > dropLength then
+						amount = dropLength
+					end
+					colAdjustment = colAdjustment + amount
+					entry.lastColumn = entry.lastColumn - amount
+					dropLength = dropLength - amount
+					remainingLength = remainingLength + amount
+					cellLengthSum = cellLengthSum - amount
+					entry.string = safeencoding.sub(entry.string, 1, offset) .. safeencoding.sub(entry.string, amount + offset + 1)
+				end
+			end
+		end
+		for cellIndex = data.truncatePoint[1] + 1, #printableStyledCells do
+			if dropLength <= 0 then
+				break
+			end
+			local psc = printableStyledCells[cellIndex]
+			local lastEntry = psc[#psc]
+			if lastEntry then
+				local cellLength = lastEntry.lastColumn
+				if dropLength >= cellLength then
+					dropLength = dropLength - cellLength
+					remainingLength = remainingLength + cellLength
+					cellLengthSum = cellLengthSum - cellLength
+					printableStyledCells[cellIndex] = {}
+				else
+					local colAdjustment = 0
+					while psc[1] do
+						if dropLength <= 0 then
+							break
+						end
+						local entry = psc[1]
+						local entryWidth = entry.lastColumn - entry.firstColumn + 1
+						if dropLength >= entryWidth then
+							colAdjustment = colAdjustment + entryWidth
+							dropLength = dropLength - entryWidth
+							remainingLength = remainingLength + entryWidth
+							cellLengthSum = cellLengthSum - entryWidth
+							table.remove(psc, 1)
+						else
+							colAdjustment = colAdjustment + dropLength
+							entry.firstColumn = entry.firstColumn + dropLength
+							dropLength = dropLength - entryWidth
+							remainingLength = remainingLength + entryWidth
+							cellLengthSum = cellLengthSum - entryWidth
+							entry.string = safeencoding.sub(entry.string, dropLength + 1)
+						end
+					end
+					for _, entry in ipairs(psc) do
+						entry.firstColumn = entry.firstColumn - colAdjustment
+						entry.lastColumn = entry.lastColumn - colAdjustment
+					end
+				end
+			end
+		end
+		for cellIndex = data.truncatePoint[1], 1, -1 do
+			if dropLength <= 0 then
+				break
+			end
+			local psc = printableStyledCells[cellIndex]
+			for i = #psc, 1, -1 do
+				if dropLength <= 0 then
+					break
+				end
+				local entry = psc[i]
+				local entryWidth = entry.lastColumn - entry.firstColumn + 1
+				if dropLength >= entryWidth then
+					dropLength = dropLength - entryWidth
+					remainingLength = remainingLength + entryWidth
+					cellLengthSum = cellLengthSum - entryWidth
+					psc[i] = nil
+				else
+					entry.string = safeencoding.sub(entry.string, 1, entryWidth - dropLength)
+					entry.lastColumn = entry.lastColumn - dropLength
+				end
+			end
+		end
 	else
 		dropLength = 0
 	end
@@ -295,11 +404,6 @@ local function statusLineDataToPrintableStyled(data, contentWidth, focused)
 			lastColumn = contentWidth,
 		}
 		table.insert(result, entry)
-	end
-	if dropLength > 0 then
-		-- TODO dedicated truncation logic
-		-- FIXME somehow only name is visible
-		result = printableStyledToView(result, dropLength, contentWidth)
 	end
 	return result
 end
