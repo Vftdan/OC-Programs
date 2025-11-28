@@ -219,6 +219,91 @@ local function printableStyledAddSyntaxRegions(orig, regions)
 	return orig
 end
 
+local function statusLineDataToPrintableStyled(data, contentWidth, focused)
+	if not data then
+		data = {cells = {""}, truncatePoint = {1, 0}}
+	end
+	local statusLineStyleName = "StatusLineNC"
+	if focused then
+		statusLineStyleName = "StatusLine"
+	end
+	local printableStyledCells = {}
+	local cellLengthSum = 0
+	for i, s in ipairs(data.cells) do
+		local psc = toPrintableStyled(s)
+		printableStyledCells[i] = psc
+		local lastEntry = psc[#psc]
+		if lastEntry then
+			cellLengthSum = cellLengthSum + lastEntry.lastColumn
+		end
+	end
+	local remainingLength = contentWidth - cellLengthSum
+	local dropLength = -remainingLength
+	if remainingLength < 0 then
+		remainingLength = 0
+	else
+		dropLength = 0
+	end
+	local separatorLength = 0
+	local separator = ""
+	local numSeparators = #data.cells - 1
+	if numSeparators > 0 then
+		separatorLength = math.floor(remainingLength / numSeparators)
+		separator = itertools.repeatString(" ", separatorLength)
+	end
+	local rightPadLength = remainingLength - numSeparators * separatorLength
+	local result = {}
+	local lastPresentCodePoint = 0
+	local lastPresentCol = 0
+	for cellIndex, psc in ipairs(printableStyledCells) do
+		if cellIndex > 1 and separatorLength > 0 then
+			local entry = {
+				string = separator,
+				styleNames = {"normal", statusLineStyleName},
+				firstCodePoint = lastPresentCodePoint + 1,
+				lastCodePoint = lastPresentCodePoint + separatorLength,
+				firstColumn = lastPresentCol + 1,
+				lastColumn = lastPresentCol + separatorLength,
+			}
+			table.insert(result, entry)
+			lastPresentCodePoint = lastPresentCodePoint + separatorLength
+			lastPresentCol = lastPresentCol + separatorLength
+		end
+		local codePointAdjustment = lastPresentCodePoint
+		local colAdjustment = lastPresentCol
+		for _, entry in ipairs(psc) do
+			local newStyle = itertools.collect(ipairs(entry.styleNames))
+			table.insert(newStyle, 2, statusLineStyleName)
+			entry.styleNames = newStyle
+			entry.firstCodePoint = entry.firstCodePoint + codePointAdjustment
+			entry.lastCodePoint = entry.lastCodePoint + codePointAdjustment
+			entry.firstColumn = entry.firstCodePoint + colAdjustment
+			entry.lastColumn = entry.lastCodePoint + colAdjustment
+			lastPresentCodePoint = entry.lastCodePoint
+			lastPresentCol = entry.lastColumn
+			table.insert(result, entry)
+		end
+	end
+	if rightPadLength > 0 then
+		rightPad = itertools.repeatString(" ", rightPadLength)
+		local entry = {
+			string = rightPad,
+			styleNames = {"normal", statusLineStyleName},
+			firstCodePoint = lastPresentCodePoint + 1,
+			lastCodePoint = lastPresentCodePoint + rightPadLength,
+			firstColumn = lastPresentCol + 1,
+			lastColumn = contentWidth,
+		}
+		table.insert(result, entry)
+	end
+	if dropLength > 0 then
+		-- TODO dedicated truncation logic
+		-- FIXME somehow only name is visible
+		result = printableStyledToView(result, dropLength, contentWidth)
+	end
+	return result
+end
+
 local Window = makeClass {
 	init = function(self, buffer)
 		self.currentBuffer = buffer
@@ -338,18 +423,14 @@ local Window = makeClass {
 
 		-- Status line
 		textrender.setCursorPos(1, height)
-		local filename = self.currentBuffer:getFilename()
-		filename = safeencoding.sub(filename, 1, width)
-		local remainingLength = width - safeencoding.len(filename)
-		local rightPad = ""
-		if remainingLength > 0 then
-			rightPad = itertools.repeatString(" ", remainingLength)
+		local blitData = {}
+		for _, entry in ipairs(statusLineDataToPrintableStyled(helpers.populateStatusLineData(self._editor, self, helpers.getEffectiveStatusLineFormatString(self._editor)), width, self._focused)) do
+			local chunk = {entry.string}
+			local style = self._editor:interpretStyleStack(entry.styleNames)
+			itertools.update(chunk, style)
+			table.insert(blitData, chunk)
 		end
-		local filenameChunk = {filename .. rightPad}
-		itertools.update(filenameChunk, statusLineStyle)
-		textrender.blitAll{
-			filenameChunk,
-		}
+		textrender.blitAll(blitData)
 	end,
 	getContentSize = function(self)
 		local width, height = textrender.getTermSize()

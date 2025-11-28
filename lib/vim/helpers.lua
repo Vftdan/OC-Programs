@@ -178,6 +178,15 @@ local function findWordInLine(editor, toCtx, opts)
 	return m[key]
 end
 
+local function getEffectiveStatusLineFormatString(editor)
+	local fmt = editor.statusLineFormatString
+	if not fmt or #fmt == 0 then
+		-- Some of the items are not implemented and will be skipped
+		fmt = "%<%f %h%m%r%=%-14.(%l,%c%V%) %P"
+	end
+	return fmt
+end
+
 function getLineSearchMatches(editor, searchString, y)
 	local buf = editor:getCurrentBuffer()
 	if not buf then
@@ -488,6 +497,166 @@ local function performWordMotion(editor, toCtx, opts)
 	end
 	toCtx.x, toCtx.y = origX, origY
 	return toCtx
+end
+
+local function populateStatusLineData(editor, win, fmt)
+	if not editor or not win or type(fmt) ~= "string" then
+		return nil
+	end
+	local buf = win.currentBuffer
+	if not buf then
+		return nil
+	end
+	local _, winHeight = win:getContentSize()
+	local bufHeight = buf:getLineCount()
+	local _, scrollY = win:getScrollAmount()
+	local cursorToCtx = makeMotionContext(editor)
+	local data = {}
+	local cells = {""}
+	local truncatePoint = {1, 0}
+	local fmtStart = 1
+	while fmtStart <= #fmt do
+		local percentPos = fmt:find("%%", fmtStart) or #fmt + 1
+		local literal = fmt:sub(fmtStart, percentPos - 1)
+		fmtStart = percentPos
+		cells[#cells] = cells[#cells] .. literal
+		local ch
+		local alignLeft, zeroPad, minWidth, maxWidth, stage = false, false, "", "", 1
+		-- Parse format item
+		while true do
+			fmtStart = fmtStart + 1
+			ch = fmt:sub(fmtStart, fmtStart)
+			if #ch < 1 then
+				break
+			end
+			if ch == "-" then
+				if stage > 0 and stage <= 1 then
+					alignLeft = true
+					stage = 2
+				else
+					stage = -1
+				end
+			elseif ch == "0" and stage <= 2 then
+				if stage > 0 then
+					zeroPad = true
+					stage = 3
+				else
+					stage = -1
+				end
+			elseif ch == "." then
+				if stage > 0 and stage <= 3 then
+					stage = 4
+				else
+					stage = -1
+				end
+			elseif ch:find("%d") then
+				if stage > 0 and stage <= 3 then
+					stage = 3
+					minWidth = minWidth .. ch
+				elseif stage == 4 then
+					maxWidth = maxWidth .. ch
+				else
+					stage = -1
+				end
+			else
+				break
+			end
+		end
+		if #ch < 1 then
+			break
+		end
+		if stage > 0 then
+			fmtStart = fmtStart + 1
+			local itemText, itemNumber = "", nil
+			if ch == "<" then
+				truncatePoint = {#cells, safeencoding.len(cells[#cells])}
+			elseif ch == "f" then
+				itemText = buf:getFilename() or "[No Name]"
+			elseif ch == "=" then
+				cells[#cells + 1] = ""
+			elseif ch == "l" then
+				itemNumber = cursorToCtx.y
+			elseif ch == "c" then  -- in codepoints
+				itemNumber = cursorToCtx.x
+			elseif ch == "P" then
+				local isTop = scrollY <= 0
+				local isBot = scrollY + winHeight >= bufHeight
+				if isTop and isBot then
+					itemText = "All"
+				elseif isTop then
+					itemText = "Top"
+				elseif isBot then
+					itemText = "Bot"
+				else
+					local maxScroll = bufHeight - winHeight
+					if maxScroll < 1 then
+						maxScroll = 1
+					end
+					if scrollY >= maxScroll then
+						scrollY = maxScroll - 1
+					end
+					local percents = math.floor(scrollY / maxScroll * 100)
+					itemText = ("% 2d%%"):format(percents)
+				end
+			end
+			if itemNumber then
+				itemText = tostring(itemNumber)
+				if #maxWidth > 0 then
+					local n = tonumber(maxWidth)
+					if n < 2 then
+						n = 2
+					end
+					if n < #itemText then
+						itemText = itemText:sub(1, n - 2) .. ">" .. tostring(#itemText - n + 2)
+					end
+				end
+				if #minWidth > 0 then
+					local n = tonumber(minWidth)
+					if n > 50 then
+						n = 50
+					end
+					local remainingLength = n - #itemText
+					if remainingLength > 0 then
+						local padChar = " "
+						if zeroPad and not alignLeft then
+							padChar = "0"
+						end
+						local padString = itertools.repeatString(padChar, remainingLength)
+						if alignLeft then
+							itemText = itemText .. padString
+						else
+							itemText = padString .. itemText
+						end
+					end
+				end
+			else
+				if #maxWidth > 0 then
+					local n = tonumber(maxWidth)
+					if n < 1 then
+						n = 1
+					end
+					local dropLength = safeencoding.len(itemText) - n + 1
+					if dropLength > 1 then
+						itemText = "<" .. safeencoding.sub(itemText, 1 + dropLength, dropLength + n - 1)
+					end
+				end
+				if #minWidth > 0 then
+					local n = tonumber(minWidth)
+					if n > 50 then
+						n = 50
+					end
+					local remainingLength = n - #itemText
+					if remainingLength > 0 then
+						itemText = itemText .. itertools.repeatString(" ", remainingLength)
+					end
+				end
+			end
+			cells[#cells] = cells[#cells] .. itemText
+		end
+	end
+	data.cells = cells
+	data.truncatePoint = truncatePoint
+	return data
 end
 
 local function pullCountString(editor)
@@ -920,6 +1089,7 @@ return {
 	findSearchStringInLine = findSearchStringInLine,
 	findSurroundingWordInLine = findSurroundingWordInLine,
 	findWordInLine = findWordInLine,
+	getEffectiveStatusLineFormatString = getEffectiveStatusLineFormatString,
 	getLineSearchMatches = getLineSearchMatches,
 	getPasteDataAsRegister = getPasteDataAsRegister,
 	getRegisterValueText = getRegisterValueText,
@@ -938,6 +1108,7 @@ return {
 	performMouseMotion = performMouseMotion,
 	performSearchMotion = performSearchMotion,
 	performWordMotion = performWordMotion,
+	populateStatusLineData = populateStatusLineData,
 	pullCountString = pullCountString,
 	pullHexDigit = pullHexDigit,
 	pullInputCharacter = pullInputCharacter,

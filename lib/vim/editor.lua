@@ -39,6 +39,7 @@ local Editor = makeClass {
 		self.runtimeDirs = {"/etc/vimruntime", "/usr/etc/vimruntime", "/home/.vim"}
 		self.enableSyntax = false
 		self.autocmdRegistry = autocmd.AutocmdRegistry(self)
+		self.statusLineFormatString = ""
 	end,
 	isRunning = function(self)
 		return self._running
