@@ -18,6 +18,9 @@ local strategies = {
 	planned = function(grid, amount)
 		local transposer, side = search.getTransposer(cfg)
 		local plan = search.planForGrid(transposer, side, grid, amount)
+		if not plan then
+			return 0
+		end
 		return robotPool.withRobot(function(hostname)
 			return rpc.call(hostname, "robot_crafter_craftFromPlan", plan)
 		end, true)

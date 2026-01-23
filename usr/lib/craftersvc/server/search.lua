@@ -57,6 +57,11 @@ local function planForGrid(transposer, side, grid, amount)
 		end
 	end
 	-- TODO rebalance in case of missing repeated items
+	for _, entry in ipairs(remaining) do
+		if #plan[entry.y][entry.x] < 1 then
+			return nil
+		end
+	end
 	return plan
 end
 
