@@ -9,6 +9,16 @@ function stop()
 	service.unregisterRpc()
 end
 
+function reload()
+	service.loadConfig()
+	robotPool.loadConfig()
+end
+
+function save()
+	service.saveConfig()
+	robotPool.saveConfig()
+end
+
 function addrobot(hostname)
 	robotPool.addRobot(hostname)
 end
@@ -31,6 +41,8 @@ function help()
 	print([[Subcommands:
 start
 stop
+reload
+save
 addrobot <hostname>
 removerobot <hostname>
 strategies

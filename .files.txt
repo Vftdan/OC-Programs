@@ -6,4 +6,5 @@ usr/lib/craftersvc/server/robotPool.lua
 usr/lib/craftersvc/robot/boundStorage.lua
 usr/lib/craftersvc/robot/service.lua
 usr/lib/craftersvc/robot/crafting.lua
+usr/lib/craftersvc/common/config.lua
 usr/lib/craftersvc/common/items.lua

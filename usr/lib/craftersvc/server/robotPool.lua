@@ -1,4 +1,7 @@
 local os = require "os"
+local config = require "craftersvc.common.config"
+
+local ROBOTS_FILE = "/etc/craftersvc/robots.cfg"
 
 local robots = {}
 local robotsBusy = {}
@@ -22,6 +25,24 @@ local function removeRobot(hostname)
 	end
 	return false
 end
+
+local function loadConfig()
+	local lst = config.readConfig(ROBOTS_FILE, true)
+	if lst then
+		for i = #robots, 1, -1 do
+			robots[i] = nil
+		end
+		for _, hostname in ipairs(lst) do
+			addRobot(hostname)
+		end
+	end
+end
+
+local function saveConfig()
+	config.writeConfig(ROBOTS_FILE, robots)
+end
+
+loadConfig()
 
 local function withRobot(cb, waitAvailable, ...)
 	repeat
@@ -51,5 +72,7 @@ end
 return {
 	addRobot = addRobot,
 	removeRobot = removeRobot,
+	loadConfig = loadConfig,
+	saveConfig = saveConfig,
 	withRobot = withRobot,
 }

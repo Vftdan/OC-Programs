@@ -1,4 +1,5 @@
 local items = require "craftersvc.common.items"
+local config = require "craftersvc.common.config"
 local component = require "component"
 
 local function planForGrid(transposer, side, grid, amount)
@@ -59,9 +60,30 @@ local function planForGrid(transposer, side, grid, amount)
 	return plan
 end
 
-local function getTransposer()
-	-- TODO allow config
+local function getTransposer(cfg)
+	cfg = cfg or {}
+	local uuid = config.get(cfg, {"transposer"})
 	local transposer = component.transposer
+	if uuid then
+		transposer = component.proxy(uuid)
+		if not transposer then
+			error("The configured transposer doesn't exist")
+		end
+		if transposer.type ~= "transposer" then
+			error("Not a transposer")
+		end
+	end
+	if not transposer then
+		error("No transposers connected")
+	end
+	local side = config.get(cfg, {"transposerSide"})
+	if side then
+		local size = transposer.getInventorySize(side)
+		if not size then
+			error("No inventory at the configured transposer side")
+		end
+		return transposer, side
+	end
 	for side = 0, 5 do
 		local size = transposer.getInventorySize(side)
 		if size and size > 0 then

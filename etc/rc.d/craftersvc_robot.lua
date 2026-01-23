@@ -8,6 +8,14 @@ function stop()
 	service.unregisterRpc()
 end
 
+function reload()
+	service.loadConfig()
+end
+
+function save()
+	service.saveConfig()
+end
+
 function addserver(hostname)
 	service.addServer(hostname)
 end
@@ -20,6 +28,8 @@ function help()
 	print([[Subcommands:
 start
 stop
+reload
+save
 addserver <hostname>
 removeserver <hostname>
 ]])

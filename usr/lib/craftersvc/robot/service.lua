@@ -1,13 +1,12 @@
 local sides = require "sides"
 local svcCrafting = require "craftersvc.robot.crafting"
 local rpc = require "rpc"
+local config = require "craftersvc.common.config"
 
 local RPC_PREFIX = "robot_crafter_"
+local CTX_FILE = "/etc/craftersvc/robot.cfg"
 
--- TODO: config loading
-local ctx = {
-	storageSide = sides.front,
-}
+local ctx
 
 local api = {
 	craftGrid = function(grid, amount)
@@ -31,6 +30,19 @@ local api = {
 		end
 	end,
 }
+
+local function loadConfig()
+	ctx = config.readConfig(CTX_FILE, true) or {}
+	if type(config.get(ctx, {"storageSide"})) ~= "number" then
+		config.put(ctx, {"storageSide"}, sides.front)
+	end
+end
+
+local function saveConfig()
+	config.writeConfig(CTX_FILE, ctx)
+end
+
+loadConfig()
 
 local function registerRpc()
 	for k, v in pairs(api) do
@@ -65,6 +77,8 @@ local function removeServer(hostname)
 end
 
 return {
+	loadConfig = loadConfig,
+	saveConfig = saveConfig,
 	registerRpc = registerRpc,
 	unregisterRpc = unregisterRpc,
 	addServer = addServer,
