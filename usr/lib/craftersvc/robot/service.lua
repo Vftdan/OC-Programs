@@ -53,6 +53,9 @@ local function registerRpc()
 		-- Robot service is private
 		rpc.allow[qualified] = rpc.allow[qualified] or {}
 		rpc.register(qualified, v)
+		for _, hostname in ipairs(ctx.servers) do
+			rpc.allow(qualified, hostname)
+		end
 	end
 end
 
@@ -93,10 +96,6 @@ local function removeServer(hostname)
 		end
 		rpc.allow[qualified][hostname] = nil
 	end
-end
-
-for _, hostname in ipairs(ctx.servers) do
-	addServer(hostname)
 end
 
 return {
