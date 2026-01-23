@@ -36,6 +36,9 @@ local function loadConfig()
 	if type(config.get(ctx, {"storageSide"})) ~= "number" then
 		config.put(ctx, {"storageSide"}, sides.front)
 	end
+	if type(config.get(ctx, {"servers"})) ~= "table" then
+		config.put(ctx, {"servers"}, {})
+	end
 end
 
 local function saveConfig()
@@ -61,12 +64,28 @@ local function unregisterRpc()
 end
 
 local function addServer(hostname)
+	local wasAdded = false
+	for _, old in ipairs(ctx.servers) do
+		if old == hostname then
+			wasAdded = true
+			break
+		end
+	end
+	if not wasAdded then
+		table.insert(ctx.servers, hostname)
+	end
 	for method in pairs(api) do
 		rpc.allow(RPC_PREFIX .. method, hostname)
 	end
 end
 
 local function removeServer(hostname)
+	for i, old in ipairs(ctx.servers) do
+		if old == hostname then
+			table.remove(ctx.servers, i)
+			break
+		end
+	end
 	for method in pairs(api) do
 		local qualified = RPC_PREFIX .. method
 		if not rpc.allow[qualified] then
@@ -74,6 +93,10 @@ local function removeServer(hostname)
 		end
 		rpc.allow[qualified][hostname] = nil
 	end
+end
+
+for _, hostname in ipairs(ctx.servers) do
+	addServer(hostname)
 end
 
 return {
