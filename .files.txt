@@ -1,0 +1,9 @@
+etc/rc.d/craftersvc_robot.lua
+etc/rc.d/craftersvc_server.lua
+usr/lib/craftersvc/server/service.lua
+usr/lib/craftersvc/server/search.lua
+usr/lib/craftersvc/server/robotPool.lua
+usr/lib/craftersvc/robot/boundStorage.lua
+usr/lib/craftersvc/robot/service.lua
+usr/lib/craftersvc/robot/crafting.lua
+usr/lib/craftersvc/common/items.lua
