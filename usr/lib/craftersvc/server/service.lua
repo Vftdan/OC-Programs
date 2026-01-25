@@ -38,6 +38,10 @@ local api = {
 		end
 		return result + currentStrategy(grid, amount)
 	end,
+	countItems = function(specList, opts)
+		local transposer, side = search.getTransposer(cfg)
+		return search.countItems(transposer, side, specList, opts or {})
+	end,
 }
 
 local function registerRpc()

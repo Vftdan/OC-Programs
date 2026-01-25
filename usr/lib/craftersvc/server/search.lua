@@ -98,7 +98,39 @@ local function getTransposer(cfg)
 	error("The transposer is not connected to the inventory")
 end
 
+local function countItems(transposer, side, specList, opts)
+	local result = {}
+	local withSlots = opts.withSlots or false
+	for _, specifiers in ipairs(specList) do
+		local entry = {specifiers = specifiers, amount = 0}
+		if withSlots then
+			entry.slots = {}
+		end
+		table.insert(result, entry)
+	end
+	if #result < 1 then
+		return result
+	end
+	local i = 0
+	for stack in transposer.getAllStacks(side) do
+		i = i + 1
+		if stack and stack.name ~= "minecraft:air" then
+			local stackSize = stack.size
+			for _, entry in ipairs(result) do
+				if items.matches(stack, entry.specifiers) then
+					entry.amount = entry.amount + stackSize
+					if withSlots then
+						table.insert(entry.slots, {s = i, n = stackSize})
+					end
+				end
+			end
+		end
+	end
+	return result
+end
+
 return {
 	planForGrid = planForGrid,
 	getTransposer = getTransposer,
+	countItems = countItems,
 }
