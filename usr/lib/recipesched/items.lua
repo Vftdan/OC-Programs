@@ -15,8 +15,8 @@ local modGetter = lazytable.create(function(ns)
 				},
 			}
 		end
-	end, {frozen = true, weak = true, toString = function() return ("mod[%q][%q]"):format(ns, name) end})
-end, {frozen = true, weak = true, toString = function() return ("mod[%q]"):format(ns) end})
+	end, {frozen = true, weak = true, toString = function() return ("mod[%q]"):format(ns) end})
+end, {frozen = true, weak = true, toString = function() return "mod" end})
 
 local loadImports = {
 	mod = modGetter,
