@@ -34,6 +34,9 @@ local function create(getter, opts)
 			 return wrappedNext, self, nil
 		end
 	end
+	if opts.weak then
+		mt.__mode = "v"
+	end
 	return lazy
 end
 
