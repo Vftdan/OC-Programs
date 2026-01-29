@@ -4,6 +4,8 @@ local craftersvc = require "recipesched.driver.craftersvc"
 local os = require "os"
 local math = require "math"
 
+local FETCH_ALL = false
+
 local function makePlanContext(name)
 	return {
 		presentCache = {},
@@ -49,10 +51,20 @@ end
 
 local function updatePresentCache(ctx)
 	local toFetch = {}
-	for itemName, wantAmount in pairs(ctx.nextItems) do
-		if wantAmount > 0 then
+	if FETCH_ALL then
+		-- FIXME high memory usage
+		for itemName in pairs(items.registry) do
 			if not ctx.presentCache[itemName] then
 				table.insert(toFetch, itemName)
+			end
+		end
+	else
+		-- TODO add retries
+		for itemName, wantAmount in pairs(ctx.nextItems) do
+			if wantAmount > 0 then
+				if not ctx.presentCache[itemName] then
+					table.insert(toFetch, itemName)
+				end
 			end
 		end
 	end
@@ -94,6 +106,7 @@ local function stepPlan(ctx)
 		end
 	end
 	for itemName, deltaValue in pairs(deltas) do
+		-- FIXME future stages now can provide resources for past stages
 		wantItem(ctx, itemName, deltaValue)
 	end
 	return updated
@@ -112,6 +125,7 @@ local function finalizePlan(ctx)
 	for i = #ctx.recipeStack, 1, -1 do
 		local stage = ctx.recipeStack[i]
 		for recipeName, mult in pairs(stage) do
+			-- TODO consider task parallelization
 			table.insert(recipeQueue, {recipe = recipeName, amount = mult})
 		end
 	end

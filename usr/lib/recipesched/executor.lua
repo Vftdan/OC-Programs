@@ -32,6 +32,7 @@ local function makeBlockingCallback(ctx, recipeName, amount)
 			local desiredAmount = response[itemName].amount + firstResult.amount * amount
 			callback(ctx, desc.args, amount)
 			while craftersvc.countPresentItems({itemName})[itemName].amount < desiredAmount do
+				-- TODO add timeout
 				os.sleep(5)
 			end
 		end

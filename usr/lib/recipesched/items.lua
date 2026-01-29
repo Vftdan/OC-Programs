@@ -49,6 +49,7 @@ local function processItem(tbl)
 		end
 		return true, {kind = "stack", value = {name = name, damage = damage}}
 	else
+		-- TODO alternative kind
 		return false, (".kind: unknown value %q"):format(kind)
 	end
 end
