@@ -1,0 +1,10 @@
+usr/lib/recipesched/driver/craftersvc.lua
+usr/lib/recipesched/executor.lua
+usr/lib/recipesched/recipe_callbacks.lua
+usr/lib/recipesched/planner.lua
+usr/lib/recipesched/drivers.lua
+usr/lib/recipesched/items.lua
+usr/lib/recipesched/util.lua
+usr/lib/recipesched/recipes.lua
+usr/lib/recipesched/lazytable.lua
+usr/lib/recipesched/configloader.lua
