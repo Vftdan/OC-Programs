@@ -8,3 +8,5 @@ usr/lib/recipesched/util.lua
 usr/lib/recipesched/recipes.lua
 usr/lib/recipesched/lazytable.lua
 usr/lib/recipesched/configloader.lua
+etc/recipesched/recipes.cfg
+etc/recipesched/items.cfg
