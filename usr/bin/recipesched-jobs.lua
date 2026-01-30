@@ -37,6 +37,9 @@ local function printJobInfo(id)
 	if job.finished and not job.success then
 		print(job.reason)
 	end
+	for i, step in ipairs(job.steps) do
+		print(("%1s %2d %s"):format((i > job.lastStep and " " or "V"), i, step.name))
+	end
 end
 
 local id = ...
