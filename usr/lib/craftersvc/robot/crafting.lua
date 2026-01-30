@@ -130,7 +130,9 @@ local function craftGrid(ctx, grid, amount)
 	return withStorage(ctx, craftGridCallback, grid, amount)
 end
 
-local function craftFromPlanCallback(storage, plan)
+local function craftFromPlanCallback(storage, plan, opts)
+	opts = opts or {}
+	local validateGrid = opts.validateGrid
 	local remaining = {}
 	for y = 1, 3 do
 		local row = plan[y]
@@ -143,14 +145,24 @@ local function craftFromPlanCallback(storage, plan)
 				for _, entry in ipairs(queue) do
 					storage.suckFromSlot(entry.slot, entry.amount)
 				end
+				if validateGrid then
+					local specifiers = (validateGrid[y] or {})[x]
+					if not specifiers then
+						return "INVALID"
+					end
+					local stack = inventory_controller.getStackInInternalSlot()
+					if not items.matches(stack, specifiers) then
+						return "INVALID"
+					end
+				end
 			end
 		end
 	end
 	return performCraft(remaining)
 end
 
-local function craftFromPlan(ctx, plan)
-	return withStorage(ctx, craftFromPlanCallback, plan)
+local function craftFromPlan(ctx, plan, opts)
+	return withStorage(ctx, craftFromPlanCallback, plan, opts)
 end
 
 return {

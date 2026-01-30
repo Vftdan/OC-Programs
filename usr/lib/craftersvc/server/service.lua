@@ -6,6 +6,7 @@ local os = require "os"
 
 local RPC_PREFIX = "craftersvc_"
 local CFG_FILE = "/etc/craftersvc/server.cfg"
+local MAX_REPLAN_RETRIES = 8
 
 local cfg
 
@@ -17,13 +18,20 @@ local strategies = {
 	end,
 	planned = function(grid, amount)
 		local transposer, side = search.getTransposer(cfg)
-		local plan = search.planForGrid(transposer, side, grid, amount)
-		if not plan then
-			return 0
+		for _ = 0, MAX_REPLAN_RETRIES do  -- retry in case validation fails
+			local plan = search.planForGrid(transposer, side, grid, amount)
+			if not plan then
+				return 0
+			end
+			local result = robotPool.withRobot(function(hostname)
+				return rpc.call(hostname, "robot_crafter_craftFromPlan", plan, {validateGrid = grid})
+			end, true)
+			if result ~= "INVALID" then
+				return result
+			end
+			os.sleep(0.05)
 		end
-		return robotPool.withRobot(function(hostname)
-			return rpc.call(hostname, "robot_crafter_craftFromPlan", plan)
-		end, true)
+		error("Transposer-robot inventory mismatch or race condition")
 	end,
 }
 

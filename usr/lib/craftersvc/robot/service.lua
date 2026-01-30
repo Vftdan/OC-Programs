@@ -19,9 +19,9 @@ local api = {
 			error(table.unpack(result, 2, result.n))
 		end
 	end,
-	craftFromPlan = function(plan)
+	craftFromPlan = function(plan, opts)
 		svcCrafting.clearInventory(ctx)
-		local result = table.pack(pcall(svcCrafting.craftFromPlan, ctx, plan))
+		local result = table.pack(pcall(svcCrafting.craftFromPlan, ctx, plan, opts))
 		svcCrafting.clearInventory(ctx)
 		if result[1] then
 			return table.unpack(result, 2, result.n)
