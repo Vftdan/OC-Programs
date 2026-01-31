@@ -191,6 +191,79 @@ local recipeTypes = {
 		descriptor.callbackName = "wired_deliver"
 		return descriptor
 	end,
+	noop = function(opts)  -- E. g. for superset items or identified through compacting drawers
+		local inputs = opts.items
+		if type(inputs) ~= "table" then
+			error("Delivery items is not a table")
+		end
+		local dependencies = {}
+		for i, cell in ipairs(inputs) do
+			if type(cell) ~= "table" then
+				error(("Noop item %d is not a table"):format(i))
+			end
+			local ref = cell.item
+			local inputAmount = cell.amount
+			if ref == nil then
+				error(("Noop item %d is missing a required field `item`"):format(i))
+			end
+			if inputAmount == nil then
+				inputAmount = 1
+			end
+			if type(inputAmount) ~= "number" then
+				error(("Noop item %d amount is not a number"):format(i))
+			end
+			local itemName = itemRefs[ref]
+			if not itemName then
+				error(("Noop item %d is not an item"):format(i))
+			end
+			dependencies[itemName] = (dependencies[itemName] or 0) + inputAmount
+		end
+		local resultsCopy = {}
+		local results = opts.results
+		if results ~= nil then
+			if type(results) ~= "table" then
+				error("Noop results is not a table")
+			end
+			for i, cell in ipairs(results) do
+				if type(cell) ~= "table" then
+					error(("Noop result %d is not a table"):format(i))
+				end
+				local ref = cell.item
+				local outputAmount = cell.amount
+				if ref == nil then
+					error(("Noop result %d is missing a required field `item`"):format(i))
+				end
+				if outputAmount == nil then
+					outputAmount = 1
+				end
+				if type(outputAmount) ~= "number" then
+					error(("Noop result %d amount is not a number"):format(i))
+				end
+				local itemName = itemRefs[ref]
+				if not itemName then
+					error(("Noop result %d is not an item"):format(i))
+				end
+				resultsCopy[i] = {item = ref, amount = outputAmount}
+			end
+		end
+		local priority = opts.priority
+		if priority == nil then
+			priority = 0
+		end
+		if type(priority) ~= "number" then
+			error("Recipe priority is not a number")
+		end
+		local descriptor = {
+			drivers = {},
+			blocking = true,
+			args = {},
+			results = resultsCopy,
+			dependencies = dependencies,
+			callbackName = "noop",
+			priority = priority,
+		}
+		return descriptor
+	end,
 }
 
 local function wrapRecipeType(name, recipeRefs, f)

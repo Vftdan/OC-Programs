@@ -16,4 +16,6 @@ return {
 		end
 		ctx.driver.delivery.deliverWired(args.destination, order)
 	end,
+	noop = function(ctx, args, amount)
+	end,
 }
