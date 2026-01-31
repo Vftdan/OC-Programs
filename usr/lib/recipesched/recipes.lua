@@ -14,7 +14,6 @@ local function toStringItemRef(ref)
 	return ("item[%q]"):format(itemRefs[ref])
 end
 
--- FIXME memory leak
 local itemGetter = lazytable.create(function(regName)
 	if type(regName) ~= "string" then
 		error("Non-string item reference")
@@ -22,7 +21,7 @@ local itemGetter = lazytable.create(function(regName)
 	local symbol = lazytable.create(function() end, {frozen = true, toString = toStringItemRef})
 	itemRefs[symbol] = regName
 	return symbol
-end)
+end, {frozen = true, weak = true, toString = function() return "item" end})
 
 local recipeTypes = {
 	craft = function(opts)
