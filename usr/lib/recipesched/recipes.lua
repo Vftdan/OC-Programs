@@ -23,6 +23,85 @@ local itemGetter = lazytable.create(function(regName)
 	return symbol
 end, {frozen = true, weak = true, toString = function() return "item" end})
 
+local function deliveryBaseType(opts)
+	local destination = opts.destination
+	if type(destination) ~= "string" then
+		error("Delivery destination is not a string")
+	end
+	local cart = opts.items
+	if type(cart) ~= "table" then
+		error("Delivery items is not a table")
+	end
+	local dependencies = {}
+	local cartCopy = {}
+	for i, cell in ipairs(cart) do
+		if type(cell) ~= "table" then
+			error(("Delivery item %d is not a table"):format(i))
+		end
+		local ref = cell.item
+		local inputAmount = cell.amount
+		if ref == nil then
+			error(("Delivery item %d is missing a required field `item`"):format(i))
+		end
+		if inputAmount == nil then
+			inputAmount = 1
+		end
+		if type(inputAmount) ~= "number" then
+			error(("Delivery item %d amount is not a number"):format(i))
+		end
+		local itemName = itemRefs[ref]
+		if not itemName then
+			error(("Delivery item %d is not an item"):format(i))
+		end
+		cartCopy[i] = {item = ref, amount = inputAmount}
+		dependencies[itemName] = (dependencies[itemName] or 0) + inputAmount
+	end
+	local resultsCopy = {}
+	local results = opts.results
+	if results ~= nil then
+		if type(results) ~= "table" then
+			error("Delivery results is not a table")
+		end
+		for i, cell in ipairs(results) do
+			if type(cell) ~= "table" then
+				error(("Delivery result %d is not a table"):format(i))
+			end
+			local ref = cell.item
+			local outputAmount = cell.amount
+			if ref == nil then
+				error(("Delivery result %d is missing a required field `item`"):format(i))
+			end
+			if outputAmount == nil then
+				outputAmount = 1
+			end
+			if type(outputAmount) ~= "number" then
+				error(("Delivery result %d amount is not a number"):format(i))
+			end
+			local itemName = itemRefs[ref]
+			if not itemName then
+				error(("Delivery result %d is not an item"):format(i))
+			end
+			resultsCopy[i] = {item = ref, amount = outputAmount}
+		end
+	end
+	local priority = opts.priority
+	if priority == nil then
+		priority = 0
+	end
+	if type(priority) ~= "number" then
+		error("Recipe priority is not a number")
+	end
+	local descriptor = {
+		drivers = {"delivery"},
+		blocking = false,
+		args = {destination = destination, cart = cartCopy},
+		results = resultsCopy,
+		dependencies = dependencies,
+		priority = priority,
+	}
+	return descriptor
+end
+
 local recipeTypes = {
 	craft = function(opts)
 		if type(opts) ~= "table" then
@@ -100,82 +179,16 @@ local recipeTypes = {
 		if type(opts) ~= "table" then
 			error("Non-table `drone_deliver` options")
 		end
-		local destination = opts.destination
-		if type(destination) ~= "string" then
-			error("Delivery destination is not a string")
+		local descriptor = deliveryBaseType(opts)
+		descriptor.callbackName = "ddrone_deliver"
+		return descriptor
+	end,
+	wired_deliver = function(opts)
+		if type(opts) ~= "table" then
+			error("Non-table `wired_deliver` options")
 		end
-		local cart = opts.items
-		if type(cart) ~= "table" then
-			error("Delivery items is not a table")
-		end
-		local dependencies = {}
-		local cartCopy = {}
-		for i, cell in ipairs(cart) do
-			if type(cell) ~= "table" then
-				error(("Delivery item %d is not a table"):format(i))
-			end
-			local ref = cell.item
-			local inputAmount = cell.amount
-			if ref == nil then
-				error(("Delivery item %d is missing a required field `item`"):format(i))
-			end
-			if inputAmount == nil then
-				inputAmount = 1
-			end
-			if type(inputAmount) ~= "number" then
-				error(("Delivery item %d amount is not a number"):format(i))
-			end
-			local itemName = itemRefs[ref]
-			if not itemName then
-				error(("Delivery item %d is not an item"):format(i))
-			end
-			cartCopy[i] = {item = ref, amount = inputAmount}
-			dependencies[itemName] = (dependencies[itemName] or 0) + inputAmount
-		end
-		local resultsCopy = {}
-		local results = opts.results
-		if results ~= nil then
-			if type(results) ~= "table" then
-				error("Delivery results is not a table")
-			end
-			for i, cell in ipairs(results) do
-				if type(cell) ~= "table" then
-					error(("Delivery result %d is not a table"):format(i))
-				end
-				local ref = cell.item
-				local outputAmount = cell.amount
-				if ref == nil then
-					error(("Delivery result %d is missing a required field `item`"):format(i))
-				end
-				if outputAmount == nil then
-					outputAmount = 1
-				end
-				if type(outputAmount) ~= "number" then
-					error(("Delivery result %d amount is not a number"):format(i))
-				end
-				local itemName = itemRefs[ref]
-				if not itemName then
-					error(("Delivery result %d is not an item"):format(i))
-				end
-				resultsCopy[i] = {item = ref, amount = outputAmount}
-			end
-		end
-		local priority = opts.priority
-		if priority == nil then
-			priority = 0
-		end
-		if type(priority) ~= "number" then
-			error("Recipe priority is not a number")
-		end
-		local descriptor = {
-			drivers = {"ddrone"},
-			blocking = false,
-			args = {destination = destination, cart = cartCopy},
-			results = resultsCopy,
-			dependencies = dependencies,
-			callbackName = "ddrone_deliver",
-			priority = priority,
-		}
+		local descriptor = deliveryBaseType(opts)
+		descriptor.callbackName = "wired_deliver"
 		return descriptor
 	end,
 }
