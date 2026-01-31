@@ -11,5 +11,6 @@ usr/lib/recipesched/configloader.lua
 usr/bin/recipesched-executor.lua
 usr/bin/recipesched-jobs.lua
 usr/bin/recipesched-craft-item.lua
+usr/bin/recipesched-reload.lua
 etc/recipesched/recipes.cfg
 etc/recipesched/items.cfg
