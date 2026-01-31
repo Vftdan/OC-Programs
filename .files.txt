@@ -1,0 +1,3 @@
+usr/lib/shell-completion/shell-completion/completions/rc.lua
+usr/lib/shell-completion/shell-completion/util.lua
+etc/rc.d/shell-completion.lua
