@@ -20,6 +20,7 @@ local function deliverDrone(destination, order)
 		local specifications = {
 			name = specList[1].name,
 			damage = specList[1].damage,
+			maxSize = specList[1].maxSize,
 			count = entry.amount,
 		}
 		table.insert(apiOrder, specifications)

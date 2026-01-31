@@ -12,6 +12,7 @@ local modGetter = lazytable.create(function(ns)
 				value = {
 					name = ns .. ":" .. name,
 					damage = fields.damage,
+					maxSize = fields.maxSize,
 				},
 			}
 		end
@@ -46,7 +47,14 @@ local function processItem(tbl)
 		if damage ~= nil and type(damage) ~= "number" then
 			return false, ".value.damage: number or nil expected, got " .. type(damage)
 		end
-		return true, {kind = "stack", value = {name = name, damage = damage}}
+		local maxSize = stack.maxSize
+		if maxSize == nil then
+			maxSize = 64
+		end
+		if type(maxSize) ~= "number" then
+			return false, ".value.maxSize: number or nil expected, got " .. type(maxSize)
+		end
+		return true, {kind = "stack", value = {name = name, damage = damage, maxSize = maxSize}}
 	else
 		-- TODO alternative kind
 		return false, (".kind: unknown value %q"):format(kind)
@@ -98,7 +106,7 @@ local function nameToSpecList(name)
 		error(("Unknown item %q"):format(name))
 	end
 	for _, stack in ipairs(stacks) do
-		table.insert(specList, {name = stack.name, damage = stack.damage})
+		table.insert(specList, {name = stack.name, damage = stack.damage, maxSize = stack.maxSize})
 	end
 	return specList, stacks
 end
