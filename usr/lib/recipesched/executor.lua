@@ -80,6 +80,7 @@ local function executorEntry()
 			if entry.time < time then
 				jobRegistry[entry.id] = nil
 				table.remove(deletionQueue, 1)
+			else
 				break
 			end
 			os.sleep(0.05)

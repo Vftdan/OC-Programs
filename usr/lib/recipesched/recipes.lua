@@ -195,4 +195,5 @@ return {
 	getRecipeItemName = getRecipeItemName,
 	recipesForResult = recipesForResult,
 	recipeResultAmount = recipeResultAmount,
+	EMPTY_SLOT = EMPTY_SLOT,
 }
