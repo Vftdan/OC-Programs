@@ -91,8 +91,21 @@ local function lookupStacks(name)
 	return result
 end
 
+local function nameToSpecList(name)
+	local specList = {}
+	local stacks = lookupStacks(name)
+	if not stacks then
+		error(("Unknown item %q"):format(name))
+	end
+	for _, stack in ipairs(stacks) do
+		table.insert(specList, {name = stack.name, damage = stack.damage})
+	end
+	return specList, stacks
+end
+
 return {
 	registry = registry,
 	reload = reload,
 	lookupStacks = lookupStacks,
+	nameToSpecList = nameToSpecList,
 }

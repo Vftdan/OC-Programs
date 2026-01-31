@@ -4,7 +4,7 @@ local drivers = require "recipesched.drivers"
 local craftersvc = require "recipesched.driver.craftersvc"
 local os = require "os"
 
-local DELETION_DELAY = 60 * 20
+local DELETION_DELAY = 72 * 60 * 20
 
 local function makeBlockingCallback(ctx, recipeName, amount)
 	local desc = recipes.registry[recipeName]
@@ -20,7 +20,7 @@ local function makeBlockingCallback(ctx, recipeName, amount)
 			callback(ctx, desc.args, amount)
 		end
 	else
-		local firstResult = desc.results
+		local firstResult = desc.results[1]
 		if not firstResult then
 			return function()
 				callback(ctx, desc.args, amount)

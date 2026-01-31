@@ -5,25 +5,13 @@ local recipes = require "recipesched.recipes"
 -- For debug
 local OFFLINE = false
 
-local function nameToSpecList(name)
-	local specList = {}
-	local stacks = items.lookupStacks(name)
-	if not stacks then
-		error(("Unknown item %q"):format(name))
-	end
-	for _, stack in ipairs(stacks) do
-		table.insert(specList, {name = stack.name, damage = stack.damage})
-	end
-	return specList, stacks
-end
-
 local function countPresentItems(names)
 	local unifiedList = {}
 	local nameRanges = {}
 	local nameStacks = {}
 	for _, name in ipairs(names) do
 		local rangeStart = #unifiedList + 1
-		local specList, stacks = nameToSpecList(name)
+		local specList, stacks = items.nameToSpecList(name)
 		nameStacks[name] = stacks
 		for _, spec in ipairs(specList) do
 			table.insert(unifiedList, spec)
@@ -72,7 +60,10 @@ local function craft(grid, amount)
 				apiGrid[y][x] = false
 			else
 				local name = recipes.getRecipeItemName(cell)
-				local specList = nameToSpecList(name)
+				if not name then
+					error(("Not an item: %q"):format(cell))
+				end
+				local specList = items.nameToSpecList(name)
 				if #specList == 0 then
 					error(("Unpopulated item %q"):format(name))
 				end

@@ -1,3 +1,4 @@
+local items = require "recipesched.items"
 local recipes = require "recipesched.recipes"
 local rpc = require "rpc"
 local inv = require "inv"
@@ -11,7 +12,7 @@ local function deliverDrone(destination, order)
 		if not name then
 			error(("Not an item: %q"):format(entry.ref))
 		end
-		local specList = nameToSpecList(name)
+		local specList = items.nameToSpecList(name)
 		if #specList == 0 then
 			error(("Unpopulated item %q"):format(name))
 		end
@@ -36,7 +37,7 @@ local function deliverWired(destination, order)
 		if not name then
 			error(("Not an item: %q"):format(entry.ref))
 		end
-		local specList = nameToSpecList(name)
+		local specList = items.nameToSpecList(name)
 		if #specList == 0 then
 			error(("Unpopulated item %q"):format(name))
 		end
