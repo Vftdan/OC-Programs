@@ -1,6 +1,7 @@
 local api = require "craftersvc.client.api"
 local items = require "recipesched.items"
 local recipes = require "recipesched.recipes"
+local math = require "math"
 
 -- For debug
 local OFFLINE = false
@@ -53,6 +54,7 @@ end
 
 local function craft(grid, amount)
 	local apiGrid = {}
+	local batchSize = 64
 	for y, row in ipairs(grid) do
 		apiGrid[y] = {}
 		for x, cell in ipairs(row) do
@@ -68,9 +70,16 @@ local function craft(grid, amount)
 					error(("Unpopulated item %q"):format(name))
 				end
 				-- TODO accept enough information to handle #specList > 1
-				apiGrid[y][x] = specList[1]
+				local specifications = specList[1]
+				batchSize = math.min(specifications.maxSize or 64, batchSize)
+				apiGrid[y][x] = specifications
 			end
 		end
+	end
+	-- Avoid timeouts
+	while amount > batchSize do
+		api.craftGrid(apiGrid, batchSize)
+		amount = amount - batchSize
 	end
 	api.craftGrid(apiGrid, amount)
 end
