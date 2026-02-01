@@ -51,6 +51,7 @@ function status()
 		else
 			print("Stopped")
 		end
+		return
 	end
 	if s == "suspended" then
 		print("Suspended?")
