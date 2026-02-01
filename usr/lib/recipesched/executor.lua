@@ -69,10 +69,10 @@ local function registerJobFromPlan(plan)
 	return id, #jobQueue
 end
 
-local function executorEntry()
-	while true do
+local function executorEntry(ctx)
+	while ctx.running do
 		local time = os.time()
-		while true do
+		while ctx.running do
 			local entry = deletionQueue[1]
 			if not entry then
 				break
@@ -86,11 +86,12 @@ local function executorEntry()
 			os.sleep(0.05)
 		end
 		local nextJobId = table.remove(jobQueue, 1)
+		ctx.heldJob = nextJobId
 		if not nextJobId then
 			os.sleep(5)
 		else
 			local job = jobRegistry[nextJobId]
-			while not job.finished do
+			while not job.finished and ctx.running do
 				if job.lastStep >= #job.steps then
 					job.success = true
 					job.finished = true
@@ -111,11 +112,30 @@ local function executorEntry()
 				job.active = false
 				os.sleep(0.05)
 			end
-			table.insert(deletionQueue, {
-				id = nextJobId,
-				time = os.time() + DELETION_DELAY,
-			})
+			ctx.heldJob = nil
+			if job.finished then
+				table.insert(deletionQueue, {
+					id = nextJobId,
+					time = os.time() + DELETION_DELAY,
+				})
+			else
+				table.insert(jobQueue, 1, id)
+			end
 		end
+	end
+end
+
+local function makeExecutorContext()
+	return {
+		running = true,
+	}
+end
+
+local function cleanupKilled(ctx)
+	ctx.running = false
+	if ctx.heldJob then
+		table.insert(jobQueue, 1, ctx.heldJob)
+		ctx.heldJob = nul
 	end
 end
 
@@ -123,4 +143,6 @@ return {
 	registerJobFromPlan = registerJobFromPlan,
 	jobRegistry = jobRegistry,
 	executorEntry = executorEntry,
+	makeExecutorContext = makeExecutorContext,
+	cleanupKilled = cleanupKilled,
 }

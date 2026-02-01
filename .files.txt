@@ -17,3 +17,4 @@ usr/bin/recipesched-craft-item.lua
 usr/bin/recipesched-reload.lua
 etc/recipesched/recipes.cfg
 etc/recipesched/items.cfg
+etc/rc.d/recipesched-executor.lua
