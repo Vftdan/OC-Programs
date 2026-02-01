@@ -45,7 +45,7 @@ local function loads(str, opts)
 	if not cb then
 		error("Config syntax error: " .. err)
 	end
-	local result = table.pack(pcall(cb))
+	local result = table.pack(xpcall(cb, debug.traceback))
 	if not result[1] then
 		error("Config runtime error: " .. tostring(result[2]))
 	end
