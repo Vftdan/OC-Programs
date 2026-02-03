@@ -134,6 +134,15 @@ end
 local function cleanupKilled(ctx)
 	ctx.running = false
 	if ctx.heldJob then
+		local job = jobRegistry[ctx.heldJob]
+		if job then
+			if job.active then
+				job.reason = "killed"
+				job.success = false
+				job.active = false
+				job.finished = true
+			end
+		end
 		table.insert(jobQueue, 1, ctx.heldJob)
 		ctx.heldJob = nul
 	end
