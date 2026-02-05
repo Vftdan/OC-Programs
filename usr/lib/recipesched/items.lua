@@ -13,6 +13,7 @@ local modGetter = lazytable.create(function(ns)
 					name = ns .. ":" .. name,
 					damage = fields.damage,
 					maxSize = fields.maxSize,
+					label = fields.label,
 				},
 			}
 		end
@@ -35,6 +36,32 @@ local function processItem(tbl)
 		return false, ".kind: string expected, got " .. type(kind)
 	end
 	if kind == "stack" then
+		--[[ Transposer stack fields:
+		-- name: string
+		-- label: string
+		-- damage: number
+		-- maxDamage: number
+		-- size: number
+		-- maxSize: number
+		-- hasTag: boolean
+		-- with Thaumic Computers: aspects: nil | table<string, number>
+		-- with Forestry integration: individual: nil | table{
+		--     displayName: string (only species word)
+		--     type: string ("bee", ...)
+		--     maxHealth: number
+		--     canSpawn: boolean
+		--     isAlive: boolean
+		--     isAnalyzed: boolean
+		--     isSecret: boolean
+		--     generation: number
+		--     health: number
+		--     isNatural: boolean
+		--     hasEffect: boolean
+		--     ident: string (species)
+		--     active: .isAnalyzed ? table<string, string | number | boolean> : nil
+		--     inactive: .isAnalyzed ? table<string, string | number | boolean> : nil
+		-- }
+		--]]
 		local stack = tbl.value
 		if type(stack) ~= "table" then
 			return false, ".value: table expected, got " .. type(stack)
@@ -54,7 +81,11 @@ local function processItem(tbl)
 		if type(maxSize) ~= "number" then
 			return false, ".value.maxSize: number or nil expected, got " .. type(maxSize)
 		end
-		return true, {kind = "stack", value = {name = name, damage = damage, maxSize = maxSize}}
+		local label = stack.label
+		if label ~= nil and type(label) ~= "string" then
+			return false, ".value.label: string expected, got " .. type(label)
+		end
+		return true, {kind = "stack", value = {name = name, damage = damage, maxSize = maxSize, label = label}}
 	else
 		-- TODO alternative kind
 		return false, (".kind: unknown value %q"):format(kind)
@@ -106,7 +137,7 @@ local function nameToSpecList(name)
 		error(("Unknown item %q"):format(name))
 	end
 	for _, stack in ipairs(stacks) do
-		table.insert(specList, {name = stack.name, damage = stack.damage, maxSize = stack.maxSize})
+		table.insert(specList, {name = stack.name, damage = stack.damage, maxSize = stack.maxSize, label = label})
 	end
 	return specList, stacks
 end
