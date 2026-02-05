@@ -106,6 +106,7 @@ local function craftGridCallback(storage, grid, amount)
 					robot.select(entry.slot)
 					local oldCount = robot.count()
 					storage.suckFromSlot(i, entry.amount)
+					-- TODO: detect overflow into the next available slot
 					local transfered = robot.count() - oldCount
 					entry.amount = entry.amount - transfered
 					remainingAmount = remainingAmount - transfered
@@ -144,6 +145,10 @@ local function craftFromPlanCallback(storage, plan, opts)
 				robot.select(robotSlot)
 				for _, entry in ipairs(queue) do
 					storage.suckFromSlot(entry.slot, entry.amount)
+					-- Clear slot overflow
+					robot.select(robotSlot + 1)
+					storage.drop()
+					robot.select(robotSlot)
 				end
 				if validateGrid then
 					local specifiers = (validateGrid[y] or {})[x]
