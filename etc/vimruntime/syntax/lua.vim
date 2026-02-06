@@ -14,6 +14,7 @@ syn match luaNumber /%d*%.%d+/
 syn match luaNumber /0x%x+/
 
 syn match luaString /"[^"]*"/
+syn match luaString /'[^']*'/
 syn match luaString /%[%[.-%]%]/
 
 syn match luaComment /%-%-.*/
