@@ -98,6 +98,7 @@ local function deliveryBaseType(opts)
 		results = resultsCopy,
 		dependencies = dependencies,
 		priority = priority,
+		skipDepsPresence = false,
 	}
 	return descriptor
 end
@@ -172,6 +173,7 @@ local recipeTypes = {
 			dependencies = dependencies,
 			callbackName = "craft",
 			priority = priority,
+			skipDepsPresence = false,
 		}
 		return descriptor
 	end,
@@ -261,6 +263,7 @@ local recipeTypes = {
 			dependencies = dependencies,
 			callbackName = "noop",
 			priority = priority,
+			skipDepsPresence = true,
 		}
 		return descriptor
 	end,

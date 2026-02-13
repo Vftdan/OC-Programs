@@ -32,7 +32,7 @@ local function findRecipeFor(ctx, itemName)
 	return candidates[1]
 end
 
-local function updateDelta(deltas, desc, mult)
+local function updateDelta(ctx, deltas, desc, mult)
 	-- Subtract results
 	for _, entry in ipairs(desc.results) do
 		local ref = entry.item
@@ -44,6 +44,16 @@ local function updateDelta(deltas, desc, mult)
 	-- Add dependencies
 	for itemName, amount in pairs(desc.dependencies) do
 		local value = deltas[itemName] or 0
+		if desc.skipDepsPresence then
+			if not ctx.presentCache[itemName] then
+				updatePresentCache(ctx)
+			end
+			local presentAmount = ctx.presentCache[itemName].amount
+			local wantedAmount = math.max(0, ctx.nextItems[itemName] or 0)
+			-- TODO: verify the validity of this formula
+			local effectivePresentAmount = math.max(0, presentAmount - value - wantAmount)
+			value = value + effectivePresentAmount
+		end
 		value = value + amount * mult
 		deltas[itemName] = value
 	end
@@ -99,7 +109,7 @@ local function stepPlan(ctx)
 					error(("Bad recipe %q for %q"):format(recipeName, itemName))
 				end
 				local mult = math.ceil(wantAmount / perSingle)
-				updateDelta(deltas, desc, mult)
+				updateDelta(ctx, deltas, desc, mult)
 				addedRecipes[recipeName] = (addedRecipes[recipeName] or 0) + mult
 				updated = true
 			end
