@@ -32,33 +32,6 @@ local function findRecipeFor(ctx, itemName)
 	return candidates[1]
 end
 
-local function updateDelta(ctx, deltas, desc, mult)
-	-- Subtract results
-	for _, entry in ipairs(desc.results) do
-		local ref = entry.item
-		local itemName = recipes.getRecipeItemName(ref)
-		local value = deltas[itemName] or 0
-		value = value - entry.amount * mult
-		deltas[itemName] = value
-	end
-	-- Add dependencies
-	for itemName, amount in pairs(desc.dependencies) do
-		local value = deltas[itemName] or 0
-		if desc.skipDepsPresence then
-			if not ctx.presentCache[itemName] then
-				updatePresentCache(ctx)
-			end
-			local presentAmount = ctx.presentCache[itemName].amount
-			local wantedAmount = math.max(0, ctx.nextItems[itemName] or 0)
-			-- TODO: verify the validity of this formula
-			local effectivePresentAmount = math.max(0, presentAmount - value - wantAmount)
-			value = value + effectivePresentAmount
-		end
-		value = value + amount * mult
-		deltas[itemName] = value
-	end
-end
-
 local function updatePresentCache(ctx)
 	local toFetch = {}
 	if FETCH_ALL then
@@ -84,6 +57,33 @@ local function updatePresentCache(ctx)
 	end
 end
 
+local function updateDelta(ctx, deltas, desc, mult)
+	-- Subtract results
+	for _, entry in ipairs(desc.results) do
+		local ref = entry.item
+		local itemName = recipes.getRecipeItemName(ref)
+		local value = deltas[itemName] or 0
+		value = value - entry.amount * mult
+		deltas[itemName] = value
+	end
+	-- Add dependencies
+	for itemName, amount in pairs(desc.dependencies) do
+		local value = deltas[itemName] or 0
+		if desc.skipDepsPresence then
+			if not ctx.presentCache[itemName] then
+				updatePresentCache(ctx)
+			end
+			local presentAmount = (ctx.presentCache[itemName] or {amount = 0}).amount
+			local wantedAmount = math.max(0, ctx.nextItems[itemName] or 0)
+			-- TODO: verify the validity of this formula
+			local effectivePresentAmount = math.max(0, presentAmount - value - wantAmount)
+			value = value + effectivePresentAmount
+		end
+		value = value + amount * mult
+		deltas[itemName] = value
+	end
+end
+
 local function stepPlan(ctx)
 	if ctx.ttl < 1 then
 		return false
@@ -99,7 +99,7 @@ local function stepPlan(ctx)
 		if negDelta and negDelta < 0 then
 			wantAmount = wantAmount + negDelta
 		end
-		wantAmount = wantAmount - ctx.presentCache[itemName].amount
+		wantAmount = wantAmount - (ctx.presentCache[itemName] or {amount = 0}).amount
 		if wantAmount > 0 then
 			local recipeName = findRecipeFor(ctx, itemName)
 			if recipeName then
@@ -126,7 +126,7 @@ local function finalizePlan(ctx)
 	updatePresentCache(ctx)
 	local missingItems = {}
 	for itemName, wantAmount in pairs(ctx.nextItems) do
-		wantAmount = wantAmount - ctx.presentCache[itemName].amount
+		wantAmount = wantAmount - (ctx.presentCache[itemName] or {amount = 0}).amount
 		if wantAmount > 0 then
 			table.insert(missingItems, {item = itemName, amount = wantAmount})
 		end
