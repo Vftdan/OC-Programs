@@ -142,9 +142,25 @@ local function nameToSpecList(name)
 	return specList, stacks
 end
 
+-- Network API wrappers
+local function getRegistryElement(key)
+	return registry[key]
+end
+
+local function getRegistryKeys()
+	local result = {}
+	for key in pairs(registry) do
+		table.insert(result, key)
+	end
+	table.sort(result)
+	return result
+end
+
 return {
 	registry = registry,
 	reload = reload,
 	lookupStacks = lookupStacks,
 	nameToSpecList = nameToSpecList,
+	getRegistryElement = getRegistryElement,
+	getRegistryKeys = getRegistryKeys,
 }

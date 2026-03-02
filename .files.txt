@@ -1,6 +1,10 @@
 usr/lib/recipesched/driver/delivery.lua
 usr/lib/recipesched/driver/craftersvc.lua
+usr/lib/recipesched/api.lua
+usr/lib/recipesched/apinames.lua
 usr/lib/recipesched/executor.lua
+usr/lib/recipesched/client.lua
+usr/lib/recipesched/netserver.lua
 usr/lib/recipesched/recipe_callbacks.lua
 usr/lib/recipesched/planner.lua
 usr/lib/recipesched/drivers.lua
@@ -11,10 +15,10 @@ usr/lib/recipesched/lazytable.lua
 usr/lib/recipesched/configloader.lua
 usr/lib/shell-completion/completions/recipesched-jobs.lua
 usr/lib/shell-completion/completions/recipesched-craft-item.lua
-usr/bin/recipesched-executor.lua
 usr/bin/recipesched-jobs.lua
 usr/bin/recipesched-craft-item.lua
 usr/bin/recipesched-reload.lua
 etc/recipesched/recipes.cfg
 etc/recipesched/items.cfg
 etc/rc.d/recipesched-executor.lua
+etc/rc.d/recipesched-server.lua

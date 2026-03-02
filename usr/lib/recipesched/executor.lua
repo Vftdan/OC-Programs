@@ -148,10 +148,49 @@ local function cleanupKilled(ctx)
 	end
 end
 
+-- Network API wrappers
+local function wrapJobInfo(job)
+	if type(job) ~= "table" then
+		return job
+	end
+	local wrapped = {
+		id = job.id,
+		name = job.name,
+		steps = {},
+		lastStep = job.lastStep,
+		created = job.created,
+		active = job.active,
+		finished = job.finished,
+		success = job.success,
+		reason = job.reason,
+	}
+	for i, step in ipairs(job.steps) do
+		wrapped.steps[i] = {
+			name = step.name,
+		}
+	end
+	return wrapped
+end
+
+local function getJobInfo(id)
+	return wrapJobInfo(jobRegistry[id])
+end
+
+local function getJobList()
+	local keys = {}
+	for id in pairs(jobRegistry) do
+		table.insert(keys, id)
+	end
+	table.sort(keys)
+	return keys
+end
+
 return {
 	registerJobFromPlan = registerJobFromPlan,
 	jobRegistry = jobRegistry,
 	executorEntry = executorEntry,
 	makeExecutorContext = makeExecutorContext,
 	cleanupKilled = cleanupKilled,
+	getJobInfo = getJobInfo,
+	getJobList = getJobList,
 }

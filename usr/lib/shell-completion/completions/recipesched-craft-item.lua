@@ -1,14 +1,9 @@
 local shell = require "shell"
 local util = require "shell-completion.util"
-local items = require "recipesched.items"
+local client = require "recipesched.client"
 
 local function getItemNames()
-	local result = {}
-	for name in pairs(items.registry) do
-		table.insert(result, name)
-	end
-	table.sort(result)
-	return result
+	return client.getApi().items.getRegistryKeys()
 end
 
 shell.registerCompletion("recipesched-craft-item", {

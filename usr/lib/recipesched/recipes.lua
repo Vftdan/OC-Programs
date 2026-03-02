@@ -358,6 +358,20 @@ local function recipeResultAmount(recipeName, itemName)
 	return amount
 end
 
+-- Network API wrappers
+local function getRegistryElement(key)
+	return registry[key]
+end
+
+local function getRegistryKeys()
+	local result = {}
+	for key in pairs(registry) do
+		table.insert(result, key)
+	end
+	table.sort(result)
+	return result
+end
+
 return {
 	registry = registry,
 	reload = reload,
@@ -366,4 +380,6 @@ return {
 	recipesForResult = recipesForResult,
 	recipeResultAmount = recipeResultAmount,
 	EMPTY_SLOT = EMPTY_SLOT,
+	getRegistryElement = getRegistryElement,
+	getRegistryKeys = getRegistryKeys,
 }

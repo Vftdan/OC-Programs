@@ -1,4 +1,6 @@
-local executor = require "recipesched.executor"
+local client = require "recipesched.client"
+local api = client.getApi()
+local executor = api.executor
 
 local FMT = "%1s %10s %25.25s %2d/%2d"
 
@@ -22,13 +24,14 @@ local function fmtArgs(id, job)
 end
 
 local function printJobList()
-	for id, job in pairs(executor.jobRegistry) do
+	for _, id in ipairs(executor.getJobList()) do
+		local job = executor.getJobInfo(id)
 		print(FMT:format(fmtArgs(id, job)))
 	end
 end
 
 local function printJobInfo(id)
-	local job = executor.jobRegistry[id]
+	local job = executor.getJobInfo(id)
 	if not job then
 		print(("No such job: %q"):format(id))
 		return

@@ -58,8 +58,11 @@ end
 local function loadNamed(name, opts)
 	opts = opts or {}
 	local fname = CFG_DIR .. name .. ".cfg"
-	local fh = io.open(fname, "r")
+	local fh, reason = io.open(fname, "r")
 	if not fh then
+		if opts.mustExist then
+			error(("Failed to open %q: %s"):format(fname, tostring(reason)))
+		end
 		return nil
 	end
 	return loads(fh:read("*a"), {

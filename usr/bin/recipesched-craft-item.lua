@@ -1,5 +1,7 @@
-local planner = require "recipesched.planner"
-local executor = require "recipesched.executor"
+local client = require "recipesched.client"
+local api = client.getApi()
+local planner = api.planner
+local executor = api.executor
 
 local function main(itemName, amount)
 	if not itemName then

@@ -1,14 +1,9 @@
 local shell = require "shell"
 local util = require "shell-completion.util"
-local executor = require "recipesched.executor"
+local client = require "recipesched.client"
 
 local function getJobIds()
-	local result = {}
-	for id in pairs(executor.jobRegistry) do
-		table.insert(result, id)
-	end
-	table.sort(result)
-	return result
+	return client.getApi().executor.getJobList()
 end
 
 shell.registerCompletion("recipesched-jobs", {
