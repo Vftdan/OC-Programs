@@ -1,0 +1,8 @@
+usr/lib/recipesched/apinames.lua
+usr/lib/recipesched/client.lua
+usr/lib/recipesched/configloader.lua
+usr/lib/shell-completion/completions/recipesched-jobs.lua
+usr/lib/shell-completion/completions/recipesched-craft-item.lua
+usr/bin/recipesched-jobs.lua
+usr/bin/recipesched-craft-item.lua
+usr/bin/recipesched-reload.lua
