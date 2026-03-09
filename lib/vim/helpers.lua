@@ -3,7 +3,7 @@ local itertools = require("vim.itertools")
 local textrender = require("vim.platform.textrender")
 local strptn = require("vim.strptn")
 local typeahead = require("vim.typeahead")
-local command = require("vim.command")
+local command
 local modes
 
 local function appendTextAtBuffer(editor, buf, tbl, x, y)
@@ -742,6 +742,9 @@ end
 local function pushModeCommandLine(editor)
 	if modes == nil then
 		modes = require("vim.modes")
+	end
+	if command == nil then
+		command = require("vim.command")
 	end
 	local text = runMode(editor, modes.cmdline, {prompt = ":", history = editor.commandHistory})
 	if text then

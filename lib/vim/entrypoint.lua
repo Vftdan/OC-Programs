@@ -5,7 +5,7 @@ local textrender = require("vim.platform.textrender")
 local helpers = require("vim.helpers")
 local command = require("vim.command")
 
-local function runInitCommands(editor, preRcCommands, postRcCommands, rcFile, gotoLine)
+local function runInitCommands(editor, preRcCommands, postRcCommands, rcFile)
 	for _, cmd in ipairs(preRcCommands) do
 		command.execute(editor, cmd)
 		if not editor:isRunning() then
@@ -30,19 +30,6 @@ local function runInitCommands(editor, preRcCommands, postRcCommands, rcFile, go
 			return
 		end
 	end
-	local buf = editor:getCurrentBuffer()
-	local numLines = buf:getLineCount()
-	if gotoLine < 0 or gotoLine > numLines then
-		gotoLine = numLines
-	end
-	if gotoLine < 1 then
-		gotoLine = 1
-	end
-	local cursorToCtx = helpers.makeMotionContext(editor)
-	cursorToCtx.y = gotoLine
-	helpers.motionContextIntoBounds(editor, cursorToCtx)
-	helpers.scrollToMotionContextEnd(editor, cursorToCtx)
-	helpers.updateCursorFromMotionContext(editor, cursorToCtx)
 end
 
 local function main(...)
@@ -54,7 +41,6 @@ local function main(...)
 	local preRcCommands = {}
 	local postRcCommands = {}
 	local argumentsEnded = false
-	local gotoLine = 1
 	local i = 0
 	local usageString = "Usage: vim [-c COMMAND] [--cmd COMMAND] [+COMMAND] [-u VIMRC] [--] FILENAME"
 	while i < args.n do
@@ -97,13 +83,10 @@ local function main(...)
 			end
 		elseif not argumentsEnded and opt:sub(1, 1) == "+" then
 			local cmd = opt:sub(2)
-			if #cmd == 0 or cmd == "$" then
-				gotoLine = -1
-			elseif cmd:find("^%d+$") then
-				gotoLine = tonumber(cmd)
-			else
-				table.insert(postRcCommands, cmd)
+			if #cmd == 0 then
+				cmd = "$"
 			end
+			table.insert(postRcCommands, cmd)
 		else
 			table.insert(filesToEdit, opt)
 		end
@@ -121,7 +104,7 @@ local function main(...)
 	local win = window.withBuffer(buf)
 	ed:setCurrentWindowId(ed:registerWindow(win))
 
-	runInitCommands(ed, preRcCommands, postRcCommands, rcFile, gotoLine)
+	runInitCommands(ed, preRcCommands, postRcCommands, rcFile)
 	if found then
 		ed.autocmdRegistry:fireCurrentBuffer("bufread")
 	else

@@ -1,8 +1,9 @@
 local strptn = require("vim.strptn")
 local safeencoding = require("vim.safeencoding")
 local option = require("vim.option")
+local helpers = require("vim.helpers")
 
-local sourceFile, execute
+local sourceFile, execute, resolveRange
 
 local function runtimeFile(editor, name, all)
 	local success = false
@@ -362,7 +363,16 @@ commands.au = commands.autocmd
 commands.setf = commands.setfiletype
 
 local function emptyCommand(editor, rangeTable)
-	-- TODO jump to the last range element
+	resolveRange(editor, rangeTable)
+	if rangeTable.failure then
+		editor:echoErr(rangeTable.failure)
+	elseif #rangeTable.elements then
+		local toCtx = helpers.makeMotionContext(editor)
+		toCtx.y = rangeTable.lines[2]
+		helpers.motionContextIntoBounds(editor, toCtx)
+		helpers.scrollToMotionContextEnd(editor, toCtx)
+		helpers.updateCursorFromMotionContext(editor, toCtx)
+	end
 end
 
 local RANGE_ESCEND_PTN = "[^%d%.%$%%,]"
@@ -473,6 +483,47 @@ local function extractRange(editor, rangeCmd)
 		elements = elements,
 		failure = failure,
 	}, rangeCmd:sub(startByte)
+end
+
+function resolveRange(editor, rangeTable)
+	local buf = editor:getCurrentBuffer()
+	local cursorToCtx = helpers.makeMotionContext(editor)
+	local visualToCtx = helpers.restoreSelectionMotionContext(editor)
+	if visualToCtx.y < visualToCtx.initialY or visualToCtx.y == visualToCtx.initialY and visualToCtx.x < visualToCtx.initialX then
+		visualToCtx.x, visualToCtx.initialX = visualToCtx.initialX, visualToCtx.x
+		visualToCtx.y, visualToCtx.initialY = visualToCtx.initialY, visualToCtx.y
+	end
+	local lastLine = buf:getLineCount()
+	local lineNr = cursorToCtx.y
+	local prevLineNr = lineNr
+	for _, entry in ipairs(rangeTable.elements) do
+		prevLineNr = lineNr
+		local kind = entry.kind
+		if kind == "empty" then
+			-- Do nothing
+		elseif kind == "number" then
+			lineNr = entry.num
+		elseif kind == "currentLine" then
+			lineNr = cursorToCtx.y
+		elseif kind == "lastLine" or kind == "wholeEnd" then
+			lineNr = lastLine
+		elseif kind == "wholeStart" then
+			lineNr = 1
+		elseif kind == "mark" then
+			local markName = entry.mark
+			if markName == "." then
+				lineNr = cursorToCtx.y
+			elseif markName == "<" then
+				lineNr = visualToCtx.initialY
+			elseif markName == ">" then
+				lineNr = visualToCtx.y
+			else
+				rangeTable.failure = ("Unknown mark: %q"):format(markName)
+			end
+		end
+		entry.lineNr = lineNr
+	end
+	rangeTable.lines = {prevLineNr, lineNr}
 end
 
 function execute(editor, cmdStr)
