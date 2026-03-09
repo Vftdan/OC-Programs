@@ -2,7 +2,7 @@ local strptn = require("vim.strptn")
 local safeencoding = require("vim.safeencoding")
 local option = require("vim.option")
 
-local sourceFile
+local sourceFile, execute
 
 local function runtimeFile(editor, name, all)
 	local success = false
@@ -361,14 +361,135 @@ commands.syn = commands.syntax
 commands.au = commands.autocmd
 commands.setf = commands.setfiletype
 
-local function execute(editor, cmdStr)
+local function emptyCommand(editor, rangeTable)
+	-- TODO jump to the last range element
+end
+
+local RANGE_ESCEND_PTN = "[^%d%.%$%%,]"
+local function extractRange(editor, rangeCmd)
+	-- TODO plus/minus suffixes
+	local nonBlankPos = strptn.firstNonSpace(rangeCmd)
+	if not nonBlankPos then
+		rangeCmd = ""
+	else
+		rangeCmd = safeencoding.sub(rangeCmd, nonBlankPos)
+	end
+	local failure = nil
+	local expectComma = false
+	local elements = {}
+	local startByte = 1
+	local cmdLen = #rangeCmd
+	while startByte <= cmdLen do
+		-- Initialize addEmpty as false to distinguish unprocessed "" from "," without checking endsWithComma
+		local addEmpty = false
+		local nextStartByte = rangeCmd:find(RANGE_ESCEND_PTN, startByte) or cmdLen + 1
+		local unprocessed = rangeCmd:sub(startByte, nextStartByte - 1)
+		local unprocessedArr = strptn.splitBy(unprocessed, ",")
+		local endsWithComma = false
+		local unprocessedLen = #unprocessedArr
+		local expectCommaAfter = expectComma
+		local addEmptyNext = false
+		if unprocessedLen > 1 and #unprocessedArr[unprocessedLen] == 0 then
+			endsWithComma = true
+			table.remove(unprocessedArr)
+		end
+		for _, elem in ipairs(unprocessedArr) do
+			expectCommaAfter = false
+			if addEmptyNext then
+				table.insert(elements, {kind = "empty", absolute = false})
+				addEmptyNext = false
+			end
+			if expectComma then
+				if #elem > 0 then
+					failure = ("Expected ',' before %q"):format(elem)
+				else
+					expectComma = false
+					expectCommaAfter = true
+					addEmpty = true
+				end
+			else
+				if #elem == 0 then
+					addEmptyNext = true
+					addEmpty = true
+				else
+					expectCommaAfter = true
+					if elem:find("^%d+$") then
+						local num = tonumber(elem)
+						if num > 999999 then
+							num = 999999
+						end
+						table.insert(elements, {kind = "number", absolute = false, num = num})
+					elseif elem == "." then
+						table.insert(elements, {kind = "currentLine", absolute = true})
+					elseif elem == "$" then
+						table.insert(elements, {kind = "lastLine", absolute = true})
+					elseif elem == "%" then
+						table.insert(elements, {kind = "wholeStart", absolute = true})
+						table.insert(elements, {kind = "wholeEnd", absolute = true})
+					else
+						table.insert(elements, {kind = "error", token = elem})
+						failure = ("Invalid range element: %q"):format(elem)
+					end
+				end
+			end
+		end
+		if addEmptyNext and endsWithComma then
+			table.insert(elements, {kind = "empty", absolute = false})
+		end
+		expectComma = expectCommaAfter and not endsWithComma
+		addEmpty = endsWithComma
+		startByte = nextStartByte
+		local missingComma = expectComma
+		local byteVal = rangeCmd:sub(nextStartByte, nextStartByte)
+		if byteVal == "'" then
+			-- Defer failure to range resolution
+			nextStartByte = nextStartByte + 1
+			-- Marks can only be single-byte
+			local markName = rangeCmd:sub(nextStartByte, nextStartByte)
+			nextStartByte = nextStartByte + 1
+			table.insert(elements, {kind = "mark", mark = markName, absolute = true})
+			expectComma = true
+		elseif byteVal == "/" or byteVal == "?" then
+			failure = "Not implemented: search range"
+			break
+		elseif byteVal == "\\" then
+			failure = "Not implemented: reused search range"
+			table.insert(elements, {kind = "search", absolute = true})
+			nextStartByte = nextStartByte + 2
+			expectComma = true
+		else
+			if addEmpty then
+				table.insert(elements, {kind = "empty", absolute = false})
+			end
+			missingComma = false
+			break
+		end
+		if missingComma then
+			failure = ("Expected ',' before %q"):format(rangeCmd:sub(startByte, nextStartByte - 1))
+		end
+		startByte = nextStartByte
+	end
+	return {
+		elements = elements,
+		failure = failure,
+	}, rangeCmd:sub(startByte)
+end
+
+function execute(editor, cmdStr)
+	local rangeTable, cmdStr = extractRange(editor, cmdStr)
+	if rangeTable.failure then
+		editor:echoErr("Range parsing error:", rangeTable.failure)
+		return
+	end
 	local nonBlankPos = strptn.firstNonSpace(cmdStr)
 	if not nonBlankPos then
+		emptyCommand(editor, rangeTable)
 		return
 	end
 	cmdStr = safeencoding.sub(cmdStr, nonBlankPos)
 	if safeencoding.sub(cmdStr, 1, 1) == "\"" then
 		-- Comment
+		emptyCommand(editor, rangeTable)
 		return
 	end
 	local argSepPos = strptn.firstSpace(cmdStr)
@@ -388,7 +509,7 @@ local function execute(editor, cmdStr)
 	end
 	local commandFun = commands[cmdName]
 	if commandFun then
-		commandFun(editor, argStr)
+		commandFun(editor, argStr, rangeTable)
 	else
 		editor:echoErr("Not an editor command:", cmdName)
 	end

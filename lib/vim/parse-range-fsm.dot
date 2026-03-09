@@ -1,0 +1,50 @@
+digraph {
+	node [style=filled,shape=box];
+	entry [style=invis];
+	start = 42;
+	layout = neato;
+	edge [len=5];
+
+	subgraph terminals {
+		node[style=bold];
+		s3;
+		s4;
+		s6;
+		s8;
+		s9;
+		s10;
+	}
+
+	subgraph pos1 {
+		node [fillcolor="#ff8888"];
+		s0 [label="\N\naddEmpty = true\nexpectComma = false"];
+		s7 [label="\N\naddEmpty = false\nexpectComma = true"];
+	}
+
+	subgraph pos2 {
+		node [fillcolor="#88ff88"];
+		s1 [label="\N\naddEmpty = false\nexpectComma = false"];
+		s2 [label="\N\naddEmpty = true\nexpectComma = false"];
+		s5 [label="\N\naddEmpty = false\nexpectComma = true"];
+	}
+
+	entry -> s0 [len=1];
+	s0 -> s1 [label="unprocessed = ''\nemit[]"];
+	s0 -> s2 [label="unprocessed = ','\nemit[empty]"];
+	s1 -> s3 [label="eor = true\nemit[]"];
+	s2 -> s4 [label="eor = true\nemit[empty]"];
+	s0 -> s5 [label="unprocessed = '.'\nemit[point]"];
+	s5 -> s6 [label="eor = true\nemit[]"];
+	s0 -> s5 [label="unprocessed = ',.'\nemit[empty, point]"];
+	s0 -> s2 [label="unprocessed = '.,'\nemit[point]"];
+	s1 -> s7 [label="eor = false\nemit[mark]"];
+	s2 -> s7 [label="eor = false\nemit[mark]"];
+
+	s7 -> s5 [label="unprocessed = ''\nemit[]"];
+	s7 -> s2 [label="unprocessed = ','\nemit[]"];
+	s7 -> s8 [label="unprocessed = '.'\nemit[error]"];
+	s7 -> s5 [label="unprocessed = ',.'\nemit[point]"];
+	s7 -> s9 [label="unprocessed = '.,'\nemit[error]"];
+
+	s5 -> s10 [label="eor = false\nemit[error]"];
+}
