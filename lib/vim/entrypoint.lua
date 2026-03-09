@@ -97,7 +97,7 @@ local function main(...)
 			end
 		elseif not argumentsEnded and opt:sub(1, 1) == "+" then
 			local cmd = opt:sub(2)
-			if #cmd == 0 then
+			if #cmd == 0 or cmd == "$" then
 				gotoLine = -1
 			elseif cmd:find("^%d+$") then
 				gotoLine = tonumber(cmd)
