@@ -366,7 +366,7 @@ local function emptyCommand(editor, rangeTable)
 	resolveRange(editor, rangeTable)
 	if rangeTable.failure then
 		editor:echoErr(rangeTable.failure)
-	elseif #rangeTable.elements then
+	elseif #rangeTable.elements > 0 then
 		local toCtx = helpers.makeMotionContext(editor)
 		toCtx.y = rangeTable.lines[2]
 		helpers.motionContextIntoBounds(editor, toCtx)
