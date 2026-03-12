@@ -27,6 +27,10 @@ local Buffer = makeClass {
 		self.syntaxName = ""
 		self.lastChangeStart = self:trackPosition()
 		self.lastChangeEnd = self:trackPosition()
+		-- Selection bounds are not sorted
+		self.lastFinishedSelectionStart = self:trackPosition()
+		self.lastFinishedSelectionEnd = self:trackPosition()
+		self.lastFinishedSelectionMeta = nil
 	end,
 	setEditor = function(self, editor)
 		self._editor = editor

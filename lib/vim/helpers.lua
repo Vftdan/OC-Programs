@@ -783,11 +783,17 @@ function registerValueFromText(editor, txt, protoRegValue)
 end
 
 local function restoreSelectionMotionContext(editor)
-	-- TODO better interface & change scope
-	if not editor._lastSelection then
+	local buf = editor:getCurrentBuffer()
+	if not buf or not buf.lastFinishedSelectionMeta then
 		return makeMotionContext(editor)
 	end
-	return itertools.collect(pairs(editor._lastSelection))
+	local toCtx = itertools.collect(pairs(buf.lastFinishedSelectionMeta))
+	toCtx.initialY = buf.lastFinishedSelectionStart.y
+	toCtx.initialX = buf.lastFinishedSelectionStart.x
+	toCtx.y = buf.lastFinishedSelectionEnd.y
+	toCtx.x = buf.lastFinishedSelectionEnd.x
+	toCtx.wantX = buf.lastFinishedSelectionEnd.wantX
+	return toCtx
 end
 
 runMode = function(editor, cb, ...)
@@ -886,9 +892,30 @@ function scrollToMotionContextEnd(editor, toCtx)
 	win:setScrollAmount(scrollX, scrollY)
 end
 
+local NON_META_TEXTOBJECT_FIELDS = {
+	initialY = true,
+	initialX = true,
+	y = true,
+	x = true,
+	wantX = true,
+}
 local function setLastSelection(editor, to)
-	-- TODO better interface & change scope
-	editor._lastSelection = to
+	local buf = editor:getCurrentBuffer()
+	if not buf then
+		return
+	end
+	buf.lastFinishedSelectionStart.y = to.initialY
+	buf.lastFinishedSelectionStart.x = to.initialX
+	buf.lastFinishedSelectionEnd.y = to.y
+	buf.lastFinishedSelectionEnd.x = to.x
+	buf.lastFinishedSelectionEnd.wantX = to.wantX
+	local meta = {}
+	for k, v in pairs(to) do
+		if not NON_META_TEXTOBJECT_FIELDS[k] then
+			meta[k] = v
+		end
+	end
+	buf.lastFinishedSelectionMeta = meta
 end
 
 local function setRepeatCount(editor, num)
