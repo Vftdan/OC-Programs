@@ -385,6 +385,7 @@ local function extractRange(editor, rangeCmd)
 		rangeCmd = safeencoding.sub(rangeCmd, nonBlankPos)
 	end
 	local failure = nil
+	local wasSemicolon = true
 	local expectComma = false
 	local elements = {}
 	local startByte = 1
@@ -394,7 +395,7 @@ local function extractRange(editor, rangeCmd)
 		local addEmpty = false
 		local nextStartByte = rangeCmd:find(RANGE_ESCEND_PTN, startByte) or cmdLen + 1
 		local unprocessed = rangeCmd:sub(startByte, nextStartByte - 1)
-		local unprocessedArr = strptn.splitBy(unprocessed, ",")
+		local unprocessedArr = strptn.splitBy(unprocessed, "[,;]", {pattern = true})
 		local endsWithComma = false
 		local unprocessedLen = #unprocessedArr
 		local expectCommaAfter = expectComma
@@ -403,10 +404,18 @@ local function extractRange(editor, rangeCmd)
 			endsWithComma = true
 			table.remove(unprocessedArr)
 		end
+		local commaOffset = 0
 		for _, elem in ipairs(unprocessedArr) do
+			if commaOffset > 0 then
+				local commaChar = unprocessed:sub(commaOffset, commaOffset)
+				if commaChar == ";" then
+					wasSemicolon = true
+				end
+			end
+			commaOffset = commaOffset + 1 + #elem
 			expectCommaAfter = false
 			if addEmptyNext then
-				table.insert(elements, {kind = "empty", absolute = false})
+				table.insert(elements, {kind = "empty", absolute = false, fromPrevious = wasSemicolon})
 				addEmptyNext = false
 			end
 			if expectComma then
@@ -428,23 +437,29 @@ local function extractRange(editor, rangeCmd)
 						if num > 999999 then
 							num = 999999
 						end
-						table.insert(elements, {kind = "number", absolute = false, num = num})
+						table.insert(elements, {kind = "number", absolute = false, num = num, fromPrevious = wasSemicolon})
 					elseif elem == "." then
-						table.insert(elements, {kind = "currentLine", absolute = true})
+						table.insert(elements, {kind = "currentLine", absolute = true, fromPrevious = wasSemicolon})
 					elseif elem == "$" then
-						table.insert(elements, {kind = "lastLine", absolute = true})
+						table.insert(elements, {kind = "lastLine", absolute = true, fromPrevious = wasSemicolon})
 					elseif elem == "%" then
-						table.insert(elements, {kind = "wholeStart", absolute = true})
-						table.insert(elements, {kind = "wholeEnd", absolute = true})
+						table.insert(elements, {kind = "wholeStart", absolute = true, fromPrevious = wasSemicolon})
+						table.insert(elements, {kind = "wholeEnd", absolute = true, fromPrevious = wasSemicolon})
 					else
-						table.insert(elements, {kind = "error", token = elem})
+						table.insert(elements, {kind = "error", token = elem, fromPrevious = wasSemicolon})
 						failure = ("Invalid range element: %q"):format(elem)
 					end
 				end
 			end
 		end
+		if endsWithComma then
+			local commaChar = unprocessed:sub(commaOffset, commaOffset)
+			if commaChar == ";" then
+				wasSemicolon = true
+			end
+		end
 		if addEmptyNext and endsWithComma then
-			table.insert(elements, {kind = "empty", absolute = false})
+			table.insert(elements, {kind = "empty", absolute = false, fromPrevious = wasSemicolon})
 		end
 		expectComma = expectCommaAfter and not endsWithComma
 		addEmpty = endsWithComma
@@ -457,19 +472,19 @@ local function extractRange(editor, rangeCmd)
 			-- Marks can only be single-byte
 			local markName = rangeCmd:sub(nextStartByte, nextStartByte)
 			nextStartByte = nextStartByte + 1
-			table.insert(elements, {kind = "mark", mark = markName, absolute = true})
+			table.insert(elements, {kind = "mark", mark = markName, absolute = true, fromPrevious = wasSemicolon})
 			expectComma = true
 		elseif byteVal == "/" or byteVal == "?" then
 			failure = "Not implemented: search range"
 			break
 		elseif byteVal == "\\" then
 			failure = "Not implemented: reused search range"
-			table.insert(elements, {kind = "search", absolute = true})
+			table.insert(elements, {kind = "search", absolute = true, fromPrevious = wasSemicolon})
 			nextStartByte = nextStartByte + 2
 			expectComma = true
 		else
 			if addEmpty then
-				table.insert(elements, {kind = "empty", absolute = false})
+				table.insert(elements, {kind = "empty", absolute = false, fromPrevious = wasSemicolon})
 			end
 			missingComma = false
 			break
