@@ -22,9 +22,6 @@ local Editor = makeClass {
 		self.mappings = {}
 		self.typeahead = typeahead.Typeahead()
 		modeacts.initialize(self.modeTries)
-		-- TODO cursor
-		self._cursorX = 1
-		self._cursorY = 1
 		self._scrollOption = 10
 		self._modeMessage = nil
 		self.typeahead:addPreWaitHandler(function() self:render() end)

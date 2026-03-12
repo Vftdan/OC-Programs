@@ -8,14 +8,25 @@ local function weakMap()
 	return setmetatable({}, weakMapMeta)
 end
 
+local TrackedPosition = makeClass {
+	init = function(self)
+		self.x = 1
+		self.y = 1
+		self.wantX = nil
+	end,
+}
+
 local Buffer = makeClass {
 	init = function(self)
 		self._lines = {""}
 		self._cacheRoot = {}
 		self._undoList = {{children = {}}, n = 1}
 		self._undoIndex = 1
+		self._trackedPositions = weakMap()
 		self.syntaxRegistry = syntax.Syntax()
 		self.syntaxName = ""
+		self.lastChangeStart = self:trackPosition()
+		self.lastChangeEnd = self:trackPosition()
 	end,
 	setEditor = function(self, editor)
 		self._editor = editor
@@ -236,6 +247,40 @@ local Buffer = makeClass {
 			table.insert(self._lines, begY, line)
 			table.insert(self._cacheRoot, begY, weakMap())
 		end
+		local newEdY = begY + #txt - 1
+		local newEdX
+		if #txt < 2 then
+			newEdX = safeencoding.len(prefix .. txt[1])
+		else
+			newEdX = safeencoding.len(txt[#txt])
+		end
+		for pos in pairs(self._trackedPositions) do
+			if pos.y > begY or pos.y == begY and pos.x >= begX then
+				if pos.y > edY then
+					pos.y = pos.y - edY + newEdY
+				elseif pos.y == edY then
+					pos.y = newEdY
+					if pos.x >= edX then
+						pos.x = pos.x - edX + newEdX
+					elseif pos.x > newEdX then
+						pos.x = newEdX
+					end
+				else
+					local line = self:getLine(pos.y)
+					local maxX = safeencoding.len(line)
+					if maxX < 1 then
+						maxX = 1
+					end
+					if pos.x > maxX then
+						pos.x = maxX
+					end
+				end
+			end
+		end
+		self.lastChangeStart.y = begY
+		self.lastChangeStart.x = begX
+		self.lastChangeEnd.y = newEdY
+		self.lastChangeEnd.x = newEdX
 	end,
 	setFilename = function(self, name)
 		self._filename = name
@@ -289,6 +334,11 @@ local Buffer = makeClass {
 		self:_setTextBetweenImpl(state.added, begX, begY, edX, edY)
 		self._undoIndex = stateIndex
 		return true
+	end,
+	trackPosition = function(self)
+		local pos = TrackedPosition()
+		self._trackedPositions[pos] = true
+		return pos
 	end,
 }
 

@@ -417,9 +417,31 @@ local Window = makeClass {
 		self._skipNonce = {}
 		self._renderedCursorX = nil
 		self._renderedCursorY = nil
+		self._bufferCursors = setmetatable({}, {__mode = "k"})
 	end,
 	setEditor = function(self, editor)
 		self._editor = editor
+	end,
+	getBufferCursor = function(self, buf)
+		if not buf then
+			return nil
+		end
+		local pos = self._bufferCursors[buf]
+		if not pos then
+			pos = buf:trackPosition()
+			self._bufferCursors[buf] = pos
+		end
+		return pos
+	end,
+	getCurrentCursor = function(self)
+		return self:getBufferCursor(self.currentBuffer)
+	end,
+	getCursorXY = function(self)
+		local pos = self:getCurrentCursor()
+		if not pos then
+			return 1, 1
+		end
+		return pos.x, pos.y
 	end,
 	invalidateDisplay = function(self)
 		self._skipNonce = {}
@@ -437,8 +459,7 @@ local Window = makeClass {
 		local maxNrDigits = safeencoding.len(tostring(n))
 		local contentWidth = width - maxNrDigits - 1
 		local contentHeight = height - 1  -- Reserve status line space
-		local cursorX = self._editor._cursorX or 1
-		local cursorY = self._editor._cursorY or 1
+		local cursorX, cursorY = self:getCursorXY()
 		local cursorViewportX, cursorViewportY = self:projectToContent(cursorX, cursorY)
 		local visualBoundaries = nil
 		if self._visualSelection then

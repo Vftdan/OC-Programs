@@ -355,11 +355,15 @@ local function isEmptyTextObject(editor, to)
 end
 
 function makeMotionContext(editor)
-	-- TODO cursor
+	local cursor = nil
+	local win = editor:getCurrentWindow()
+	if win ~= nil then
+		cursor = win:getCurrentCursor()
+	end
 	local toCtx = {
-		initialX = editor._cursorX or 1,
-		initialY = editor._cursorY or 1,
-		wantX = editor._cursorWantX,
+		initialX = cursor and cursor.x or 1,
+		initialY = cursor and cursor.y or 1,
+		wantX = cursor and cursor.wantX,
 	}
 	toCtx.x = toCtx.initialX
 	toCtx.y = toCtx.initialY
@@ -929,13 +933,30 @@ function setTextObjectAsRegister(editor, to, regValue)
 		end
 	end
 	buf:setTextBetween(txt, getTextObjectEnds(editor, to))
+	local cursor = nil
+	local win = editor:getCurrentWindow()
+	if win ~= nil then
+		cursor = win:getCurrentCursor()
+	end
+	if cursor ~= nil then
+		cursor.y = buf.lastChangeEnd.y
+		cursor.x = buf.lastChangeEnd.x
+		cursor.wantX = nil
+	end
 end
 
 function updateCursorFromMotionContext(editor, toCtx)
-	-- TODO cursor
-	editor._cursorX = toCtx.x
-	editor._cursorY = toCtx.y
-	editor._cursorWantX = toCtx.wantX
+	local win = editor:getCurrentWindow()
+	if win == nil then
+		return
+	end
+	local cursor = win:getCurrentCursor()
+	if cursor == nil then
+		return
+	end
+	cursor.x = toCtx.x
+	cursor.y = toCtx.y
+	cursor.wantX = toCtx.wantX
 end
 
 textObjects = {
