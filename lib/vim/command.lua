@@ -99,16 +99,26 @@ local function optionCommand(editor, argStr, opts)
 end
 
 local commands = {
-	write = function(editor, argStr)
+	write = function(editor, argStr, rangeTable)
 		local buf = editor:getCurrentBuffer()
 		if buf == nil then
 			return
 		end
+		local opts = {}
 		if #argStr > 0 then
-			buf:write(argStr)
-		else
-			buf:write()
+			opts.filename = argStr
 		end
+		if #rangeTable.elements > 0 then
+			resolveRange(editor, rangeTable)
+			if rangeTable.failure then
+				editor:echoErr(rangeTable.failure)
+				return
+			else
+				opts.firstLine = rangeTable.lines[1]
+				opts.lastLine = rangeTable.lines[2]
+			end
+		end
+		buf:write(opts)
 	end,
 	quit = function(editor, argStr)
 		editor:terminate()

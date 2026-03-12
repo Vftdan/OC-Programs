@@ -92,9 +92,10 @@ local Buffer = makeClass {
 		self._undoIndex = newStateIndex
 		return found
 	end,
-	write = function(self, filename)
+	write = function(self, opts)
+		opts = opts or {}
 		-- TODO writebackup
-		filename = filename or self._filename
+		filename = opts.filename or self._filename
 		if not filename then
 			self:_echoError("No file name")
 			return
@@ -106,24 +107,44 @@ local Buffer = makeClass {
 		end
 		local success = true
 		local numLines = self:getLineCount()
-		success, reason = pcall(f.write, f, self:getLine(1))
+		if opts.lastLine and opts.lastLine < numLines then
+			numLines = opts.lastLine
+		end
+		local bufOffset = (opts.firstLine or 1) - 1
+		if bufOffset < 0 then
+			bufOffset = 0
+		end
+		numLines = numLines - bufOffset
+		local writtenLines = 0
+		if numLines > 0 then
+			success, reason = pcall(f.write, f, self:getLine(1 + bufOffset))
+			if success then
+				writtenLines = 1
+			end
+		else
+			success, reason = pcall(f.write, f, "")
+		end
 		for i = 2, numLines do
 			if success then
-				success, reason = pcall(f.write, f, "\n" .. self:getLine(i))
+				success, reason = pcall(f.write, f, "\n" .. self:getLine(i + bufOffset))
+				if success then
+					writtenLines = writtenLines + 1
+				end
 			else
 				break
 			end
 		end
+		local writtenInfo = string.format("%q %dL written", filename, numLines)
 		if not success then
-			self:_echoError("Error while writing:", reason)
+			self:_echoError("Error while writing:", reason, "; Potentially", writtenInfo)
 			return
 		end
 		success, reason = pcall(f.close, f)
 		if not success then
-			self:_echoError("Error while closing:", reason)
+			self:_echoError("Error while closing:", reason, "; Potentially", writtenInfo)
 			return
 		end
-		self:_echoInfo(string.format("%q %dL written", filename, numLines))
+		self:_echoInfo(writtenInfo)
 	end,
 	--- Copies characterwise lines or their parts into an array
 	-- Both beginning and ending characters are included
