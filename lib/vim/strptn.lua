@@ -8,6 +8,7 @@ local NONSPACE_PTN = "%S+"
 local SPACE_PTN = "%s+"
 local BACKSLASH = "\\"
 local BACKSLASH_OR_SPACE_PTN = "[%s\\]"
+local NON_AL_BANG_PTN = "[^%a!\x80-\xff]"
 local GLOB_CHAR_PTN = "[%*%?]"
 local MAGIC_CHARS = "().%+-*?[^$"
 local MAGIC_CHARS_PTN
@@ -394,6 +395,14 @@ local function firstSpace(haystack)
 	return unitPointIndex(haystack, i)
 end
 
+local function firstNonAlBang(haystack)
+	local i = haystack:find(NON_AL_BANG_PTN)
+	if not i then
+		return nil
+	end
+	return unitPointIndex(haystack, i)
+end
+
 local function firstBackslash(haystack)
 	local i = haystack:find(BACKSLASH)
 	if not i then
@@ -491,6 +500,7 @@ return {
 	matchesMerge = matchesMerge,
 	firstNonSpace = firstNonSpace,
 	firstSpace = firstSpace,
+	firstNonAlBang = firstNonAlBang,
 	firstBackslash = firstBackslash,
 	firstUnescapedSpace = firstUnescapedSpace,
 	unescapeBackslash = unescapeBackslash,

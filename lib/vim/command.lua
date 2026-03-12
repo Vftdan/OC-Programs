@@ -558,7 +558,7 @@ function execute(editor, cmdStr)
 		emptyCommand(editor, rangeTable)
 		return
 	end
-	local argSepPos = strptn.firstSpace(cmdStr)
+	local argSepPos = strptn.firstNonAlBang(cmdStr)
 	local cmdName, argStr
 	if argSepPos then
 		cmdName = safeencoding.sub(cmdStr, 1, argSepPos - 1)
