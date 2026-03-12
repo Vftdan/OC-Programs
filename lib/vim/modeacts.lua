@@ -821,6 +821,16 @@ local visualActions = {
 		helpers.updateCursorFromMotionContext(editor, cursorToCtx)
 		return true, toCtx
 	end,
+	[":"] = function(editor, toCtx)
+		local to = helpers.finalizeMotion(editor, toCtx)
+		helpers.setLastSelection(editor, to)
+		-- Ideally, this should run after the visual mode is popped (but before visual selection unrenders),
+		-- But currently the only way to defer actions is prepending keys to typeahead,
+		-- Which we generally try to minimize, and in this case would also depend on the following key being processed in the normal mode
+		-- Which would break if we ever support `<c-o>v:` starting in the insert mode
+		helpers.pushModeCommandLine(editor, {text = "'<,'>"})
+		return true, toCtx
+	end,
 }
 
 local cmdlineActions = {

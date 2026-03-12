@@ -739,14 +739,15 @@ local function pullTextObject(editor)
 	return to
 end
 
-local function pushModeCommandLine(editor)
+local function pushModeCommandLine(editor, opts)
 	if modes == nil then
 		modes = require("vim.modes")
 	end
 	if command == nil then
 		command = require("vim.command")
 	end
-	local text = runMode(editor, modes.cmdline, {prompt = ":", history = editor.commandHistory})
+	opts = opts or {}
+	local text = runMode(editor, modes.cmdline, {prompt = ":", text = opts.text, history = editor.commandHistory})
 	if text then
 		command.execute(editor, text)
 	end
