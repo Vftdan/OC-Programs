@@ -969,6 +969,21 @@ function setTextObjectAsRegister(editor, to, regValue)
 		cursor.y = buf.lastChangeEnd.y
 		cursor.x = buf.lastChangeEnd.x
 		cursor.wantX = nil
+		if buf.lastChangeStart.y > buf.lastChangeEnd.y or buf.lastChangeStart.y == buf.lastChangeEnd.y and buf.lastChangeStart.x > buf.lastChangeEnd.x then
+			cursor.y = buf.lastChangeStart.y
+			cursor.x = buf.lastChangeStart.x
+		end
+		if cursor.x < 1 then
+			if cursor.y <= 1 then
+				cursor.x = 1
+			else
+				local y = cursor.y - 1
+				cursor.y = y
+				local line = buf:getLine(y)
+				local lineLength = safeencoding.len(line)
+				cursor.x = lineLength + 1
+			end
+		end
 	end
 end
 

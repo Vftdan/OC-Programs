@@ -270,6 +270,9 @@ local Buffer = makeClass {
 						pos.x = newEdX
 					end
 				else
+					if pos.y > newEdY then
+						pos.y = newEdY
+					end
 					local line = self:getLine(pos.y)
 					local maxX = safeencoding.len(line)
 					if maxX < 1 then
