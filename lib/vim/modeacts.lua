@@ -25,12 +25,34 @@ local simpleOperators = {
 		helpers.setTextObjectAsRegister(editor, to, helpers.emptyRegisterValue)
 	end,
 	c = function(editor, to)
+		local buf = editor:getCurrentBuffer()
+		if buf == nil then
+			return
+		end
 		local regValue = helpers.getTextObjectAsRegister(editor, to)
 		if regValue == nil then
 			return
 		end
 		helpers.setSelectedRegister(editor, regValue, {delete = true})
-		helpers.setTextObjectAsRegister(editor, to, helpers.emptyRegisterValue)
+		local regValue = helpers.emptyRegisterValue
+		if to.linewise then
+			local minY = to.initialY
+			local numLines = buf:getLineCount()
+			if minY > to.y then
+				minY = to.y
+			end
+			if minY > numLines then
+				minY = numLines
+			end
+			if minY < 1 then
+				minY = 1
+			end
+			local line = buf:getLine(minY)
+			local indentLen = (strptn.firstNonSpace(line) or safeencoding.len(line) + 1) - 1
+			local indent = safeencoding.sub(line, 1, indentLen)
+			regValue = helpers.registerValueFromText(editor, {indent, ""}, regValue)
+		end
+		helpers.setTextObjectAsRegister(editor, to, regValue)
 		helpers.pushModeInsert(editor)
 	end,
 }
