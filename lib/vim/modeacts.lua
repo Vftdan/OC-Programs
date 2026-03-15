@@ -34,13 +34,14 @@ local simpleOperators = {
 			return
 		end
 		helpers.setSelectedRegister(editor, regValue, {delete = true})
-		local regValue = helpers.emptyRegisterValue
+		local emptyValue = helpers.emptyRegisterValue
 		if to.linewise then
-			local minY = to.initialY
+			local minY, maxY = to.initialY, to.y
 			local numLines = buf:getLineCount()
-			if minY > to.y then
-				minY = to.y
+			if minY > maxY then
+				minY, maxY = maxY, minY
 			end
+			-- Don't validate maxY, as it is unused
 			if minY > numLines then
 				minY = numLines
 			end
@@ -50,9 +51,10 @@ local simpleOperators = {
 			local line = buf:getLine(minY)
 			local indentLen = (strptn.firstNonSpace(line) or safeencoding.len(line) + 1) - 1
 			local indent = safeencoding.sub(line, 1, indentLen)
-			regValue = helpers.registerValueFromText(editor, {indent, ""}, regValue)
+			local txt = {indent}
+			emptyValue = helpers.registerValueFromText(editor, txt, regValue)
 		end
-		helpers.setTextObjectAsRegister(editor, to, regValue)
+		helpers.setTextObjectAsRegister(editor, to, emptyValue)
 		helpers.pushModeInsert(editor)
 	end,
 }

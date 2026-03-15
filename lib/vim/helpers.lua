@@ -973,16 +973,23 @@ function setTextObjectAsRegister(editor, to, regValue)
 			cursor.y = buf.lastChangeStart.y
 			cursor.x = buf.lastChangeStart.x
 		end
+		local line
 		if cursor.x < 1 then
 			if cursor.y <= 1 then
 				cursor.x = 1
 			else
 				local y = cursor.y - 1
 				cursor.y = y
-				local line = buf:getLine(y)
+				line = buf:getLine(y)
 				local lineLength = safeencoding.len(line)
 				cursor.x = lineLength + 1
 			end
+		end
+		if not line then
+			line = buf:getLine(cursor.y)
+		end
+		if regValue.linewise then
+			cursor.x = strptn.firstNonSpace(line) or safeencoding.len(line) + 1
 		end
 	end
 end
