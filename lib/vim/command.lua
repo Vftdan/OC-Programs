@@ -2,6 +2,9 @@ local strptn = require("vim.strptn")
 local safeencoding = require("vim.safeencoding")
 local option = require("vim.option")
 local helpers = require("vim.helpers")
+local Trie = require("vim.trie")
+local typeahead = require("vim.typeahead")
+local keyseq = require("vim.keyseq")
 
 local sourceFile, execute, resolveRange
 
@@ -362,6 +365,59 @@ local commands = {
 		option.options.syntax:set(editor, {value = argStr, scope = "local"})
 	end,
 }
+
+local function registerMappingCommand(name, tables, isRecursive)
+	commands[name] = function(editor, argStr, rangeTable)
+		if #rangeTable.elements > 0 then
+			editor:echoErr("No range allowed")
+			return
+		end
+		local origArgStr = argStr
+		local argSepPos = strptn.firstUnescapedSpace(argStr)
+		if not argSepPos then
+			editor:echoErr("Not enough arguments: " .. name, origArgStr)
+			return
+		end
+		local lhs = keyseq.parseKeySequence(safeencoding.sub(argStr, 1, argSepPos - 1), typeahead.keyNormalisation, typeahead.modifierOrder)
+		argStr = safeencoding.sub(argStr, argSepPos)
+		local nonBlankPos = strptn.firstNonSpace(argStr)
+		if not argSepPos then
+			editor:echoErr("Not enough arguments: " .. name, origArgStr)
+			return
+		end
+		argStr = safeencoding.sub(argStr, nonBlankPos)
+		local rhs = keyseq.parseKeySequence(argStr, typeahead.keyNormalisation, typeahead.modifierOrder)
+		for _, key in ipairs(tables) do
+			local trie = editor.mappings[key]
+			if not trie then
+				trie = Trie()
+				editor.mappings[key] = trie
+			end
+			trie:put(lhs, {dst = rhs, remap = isRecursive})
+		end
+	end
+end
+
+local mappingModes = {
+	[""] = {"n", "v", "o"},
+	["!"] = {"i", "c"},
+	n = {"n"},
+	x = {"v"},
+	v = {"v"},
+	i = {"i"},
+	c = {"c"},
+	o = {"o"},
+}
+
+for prefix, tables in pairs(mappingModes) do
+	local suffix = ""
+	if prefix == "!" then
+		suffix = prefix
+		prefix = ""
+	end
+	registerMappingCommand(prefix .. "noremap" .. suffix, tables, false)
+	registerMappingCommand(prefix .. "map" .. suffix, tables, true)
+end
 
 commands.w = commands.write
 commands.q = commands.quit
