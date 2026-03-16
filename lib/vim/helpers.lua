@@ -329,17 +329,17 @@ function getTextObjectEnds(editor, to)
 	return begX, begY, edX, edY
 end
 
-local textObjects, registerValueFromText, updateCursorFromMotionContext, setTextObjectAsRegister, scrollToMotionContextEnd
+local textObjects, registerValueFromText, updateCursorFromMotionContext, setTextObjectAsRegister, scrollToMotionContextEnd, makeFinalizedEmptyCursorMotion
 
-local function insertTextAtCursor(editor, txt)
+local function insertTextAtCursor(editor, txt, opts)
+	opts = opts or {}
 	local cursorToCtx = makeMotionContext(editor)
-	if cursorToCtx == nil then
+	if not cursorToCtx then
 		return
 	end
-	cursorToCtx.exclusive = true
-	local cursorTo = finalizeMotion(editor, cursorToCtx)
+	local cursorTo = makeFinalizedEmptyCursorMotion(editor)
 	local fakeRegValue = registerValueFromText(editor, txt)
-	setTextObjectAsRegister(editor, cursorTo, fakeRegValue)
+	setTextObjectAsRegister(editor, cursorTo, fakeRegValue, {changes = opts.changes, onePastEnd = true})
 	if #txt == 1 then
 		cursorToCtx.x = cursorToCtx.x + safeencoding.len(txt[1])
 	else
@@ -352,6 +352,15 @@ end
 
 local function isEmptyTextObject(editor, to)
 	return to.empty
+end
+
+function makeFinalizedEmptyCursorMotion(editor)
+	local cursorToCtx = makeMotionContext(editor)
+	if cursorToCtx == nil then
+		return nil
+	end
+	cursorToCtx.exclusive = true
+	return finalizeMotion(editor, cursorToCtx)
 end
 
 function makeMotionContext(editor)
@@ -938,10 +947,15 @@ local function setSelectedRegister(editor, regValue, opts)
 	editor._unnamedRegister = regValue
 end
 
-function setTextObjectAsRegister(editor, to, regValue)
+function setTextObjectAsRegister(editor, to, regValue, opts)
+	opts = opts or {}
+	local changes = opts.changes
 	local buf = editor:getCurrentBuffer()
 	if buf == nil then
 		return nil
+	end
+	if not changes then
+		changes = {buf.insertStagingStack[#buf.insertStagingStack]}
 	end
 	local txt = regValue.lines
 	if regValue.linewise then
@@ -959,7 +973,23 @@ function setTextObjectAsRegister(editor, to, regValue)
 			table.insert(txt, "")
 		end
 	end
-	buf:setTextBetween(txt, getTextObjectEnds(editor, to))
+	local begX, begY, edX, edY = getTextObjectEnds(editor, to)
+	local change = nil
+	local begChange, relBegX, relBegY = buf:findStagingChangeByPos({x = begX, y = begY}, {onePastEnd = opts.onePastEnd})
+	local edChange, relEdX, relEdY = buf:findStagingChangeByPos({x = edX, y = edY}, {onePastEnd = opts.onePastEnd, exclusive = to.exclusive})
+	if begChange and begChange == edChange then
+		for _, elem in ipairs(changes) do
+			if elem == begChange then
+				change = elem
+				break
+			end
+		end
+	end
+	if change then
+		change:splice(txt, relBegX, relBegY, relEdX, relEdY)
+	else
+		buf:setTextBetween(txt, begX, begY, edX, edY)
+	end
 	local cursor = nil
 	local win = editor:getCurrentWindow()
 	if win ~= nil then
@@ -1176,6 +1206,7 @@ return {
 	getTextObjectEnds = getTextObjectEnds,
 	insertTextAtCursor = insertTextAtCursor,
 	isEmptyTextObject = isEmptyTextObject,
+	makeFinalizedEmptyCursorMotion = makeFinalizedEmptyCursorMotion,
 	makeMotionContext = makeMotionContext,
 	motionContextIntoBounds = motionContextIntoBounds,
 	performCursorMotion = performCursorMotion,

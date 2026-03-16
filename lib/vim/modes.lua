@@ -128,8 +128,21 @@ local function textObject(editor)
 	end
 end
 
-local function insertModeSingle(editor)
+-- borrow change
+local function insertModeSingle(editor, change)
 	editor.typeahead:setModeMappings(editor.mappings.i)
+	local buf = editor:getCurrentBuffer()
+	if buf == nil then
+		return nil
+	end
+	buf:cleanFinalizedChanges()
+	local ownChange = false
+	if not change or change:getBuffer() ~= buf or change:isFinalized() then
+		ownChange = true
+		local cursorTo = helpers.makeFinalizedEmptyCursorMotion(editor)
+		change = buf:startStagingChange(helpers.getTextObjectEnds(editor, cursorTo))
+		table.insert(buf.insertStagingStack, change)
+	end
 	local cons = editor.modeTries.insert:consumer()
 	local i = 0
 	local prefix = {}
@@ -165,7 +178,11 @@ local function insertModeSingle(editor)
 		for _ = 1, len do
 			editor.typeahead:pull()
 		end
-		local shouldEnd = action(editor)
+		local shouldEnd = action(editor, change)
+		if ownChange and not change:isFinalized() then
+			change:commit()
+			table.remove(buf.insertStagingStack)
+		end
 		editor:render()
 		if shouldEnd then
 			return nil
@@ -182,18 +199,45 @@ local function insertModeSingle(editor)
 			-- helpers.setTextObjectAsRegister(editor, cursorTo, fakeRegValue)
 			-- helpers.performCursorMotion(editor, helpers.textObjects.characterForward)
 		end
+		if ownChange then
+			change:commit()
+			table.remove(buf.insertStagingStack)
+		end
 		return true
 	end
 end
 
-local function insertMode(editor)
+-- move change
+local function insertMode(editor, change)
+	local buf = editor:getCurrentBuffer()
+	if buf == nil then
+		return nil
+	end
+	local repeatCount = helpers.getRepeatCount1(editor)
+	helpers.setRepeatCount(editor, 0)
+	if not change then
+		local cursorTo = helpers.makeFinalizedEmptyCursorMotion(editor)
+		change = buf:startStagingChange(helpers.getTextObjectEnds(editor, cursorTo))
+	end
+	table.insert(buf.insertStagingStack, change)
 	editor:setModeMessage("-- INSERT --")
 	while editor:isRunning() do
-		if insertModeSingle(editor) == nil then
+		if insertModeSingle(editor, change) == nil then
 			break
 		end
 		editor:render()
 	end
+	if not change:isFinalized() then
+		if repeatCount > 1 then
+			local txt = change:getText()
+			for _ = 2, repeatCount do
+				change:splice(txt, 1, 1, 0, 1)
+			end
+		end
+		change:commit()
+	end
+	table.remove(buf.insertStagingStack)
+	buf:cleanFinalizedChanges()
 	editor:setModeMessage("")
 	editor:render()
 end

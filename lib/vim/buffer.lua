@@ -14,6 +14,178 @@ local TrackedPosition = makeClass {
 		self.y = 1
 		self.wantX = nil
 	end,
+	compareTo = function(self, other)
+		if self.y < other.y then
+			return -1
+		elseif self.y > other.y then
+			return 1
+		elseif self.x < other.x then
+			return -1
+		elseif self.x > other.x then
+			return 1
+		end
+		return 0
+	end,
+}
+
+-- FIXME interference with scoped cache
+-- Having overlapping staging changes is illegal
+local StagingChange = makeClass {
+	init = function(self, buf, begX, begY, edX, edY)
+		if edY < begY or edY == begY and edX + 1 < begX then
+			print(begX, begY, edX, edY)
+			error()
+			return
+		end
+		self._finalized = false
+		self._visible = true
+		self._buf = buf
+		self._startPos = buf:trackPosition()
+		self._startPos.x = begX
+		self._startPos.y = begY
+		self._savedStartPos = {x = begX, y = begY}
+		self._delDY = edY - begY
+		if self._delDY == 0 then
+			self._delDX = edX - begX
+		else
+			self._delEdX = edX
+		end
+		self._txt = {""}
+	end,
+	_assertNotFinalized = function(self)
+		if self._finalized then
+			error("Modifying finalized StagingChange")
+		end
+	end,
+	isFinalized = function(self)
+		return self._finalized
+	end,
+	_saveStartPos = function(self)
+		self._savedStartPos.x = self._startPos.x
+		self._savedStartPos.y = self._startPos.y
+	end,
+	_restoreStartPos = function(self)
+		self._startPos.x = self._savedStartPos.x
+		self._startPos.y = self._savedStartPos.y
+	end,
+	setVisible = function(self, newVal)
+		self:_assertNotFinalized()
+		newVal = not not newVal
+		if self._visible == newVal then
+			return
+		end
+		self._visible = newVal
+		local begX, begY, edX, edY, newEdX, newEdY = self:getBounds()
+		if not newVal then
+			edX, newEdX = newEdX, edX
+			edY, newEdY = newEdY, edY
+		end
+		self:_saveStartPos()
+		self._buf:adjustPositionsAndCache(begX, begY, edX, edY, newEdX, newEdY)
+		self:_restoreStartPos()
+	end,
+	isVisible = function(self)
+		return self._visible
+	end,
+	getBounds = function(self)
+		local begX = self._startPos.x
+		local begY = self._startPos.y
+		local edY = begY + self._delDY
+		local edX
+		if begY == edY then
+			edX = begX + self._delDX
+		else
+			edX = self._delEdX
+		end
+		local txt = self._txt
+		local newEdY = begY + #txt - 1
+		local newEdX
+		if #txt < 2 then
+			-- May be wrong with some encoding shenanigans
+			newEdX = begX - 1 + safeencoding.len(txt[1])
+		else
+			newEdX = safeencoding.len(txt[#txt])
+		end
+		return begX, begY, edX, edY, newEdX, newEdY
+	end,
+	commit = function(self)
+		self:_assertNotFinalized()
+		local begX, begY, edX, edY, newEdX, newEdY = self:getBounds()
+		self:setVisible(false)
+		self._finalized = true
+		self._buf:setTextBetween(self._txt, begX, begY, edX, edY)
+	end,
+	discard = function(self)
+		self:_assertNotFinalized()
+		self:setVisible(false)
+		self._finalized = true
+	end,
+	splice = function(self, newTxt, relBegX, relBegY, relEdX, relEdY)
+		self:_assertNotFinalized()
+		if relEdY < relBegY or relEdY == relBegY and relEdX + 1 < relBegX then
+			error("Wrong staging change splice ends order")
+			return
+		end
+		local ownBegX, ownBegY = self._startPos.x, self._startPos.y
+		local ownTxt = self._txt
+		local begLine = ownTxt[relBegY]
+		local edLine = ownTxt[relEdY]
+		local prefix, suffix
+		if relBegX > 1 then
+			prefix = safeencoding.sub(begLine, 1, relBegX - 1)
+		else
+			prefix = ""
+		end
+		if relEdX > 0 then
+			suffix = safeencoding.sub(edLine, relEdX + 1)
+		else
+			suffix = edLine
+		end
+		for i = relEdY, relBegY, -1 do
+			table.remove(ownTxt, i)
+		end
+		for i, line in itertools.reversedIpairs(newTxt) do
+			if i == #newTxt then
+				line = line .. suffix
+			end
+			if i == 1 then
+				line = prefix .. line
+			end
+			table.insert(ownTxt, relBegY, line)
+		end
+		if self._visible then
+			local begY = ownBegY + relBegY - 1
+			local begX
+			if relBegY == 1 then
+				begX = ownBegX + relBegX - 1
+			else
+				begX = relBegX
+			end
+			local edY = ownBegY + relEdY - 1
+			local edX
+			if relEdY == 1 then
+				edX = ownBegX + relEdX - 1
+			else
+				edX = relEdX
+			end
+			local newEdY = begY + #newTxt - 1
+			local newEdX
+			if #newTxt < 2 then
+				newEdX = begX - 1 + safeencoding.len(newTxt[1])
+			else
+				newEdX = safeencoding.len(newTxt[#newTxt])
+			end
+			self:_saveStartPos()
+			self._buf:adjustPositionsAndCache(begX, begY, edX, edY, newEdX, newEdY)
+			self:_restoreStartPos()
+		end
+	end,
+	getBuffer = function(self)
+		return self._buf
+	end,
+	getText = function(self)
+		return itertools.collect(ipairs(self._txt))
+	end,
 }
 
 local Buffer = makeClass {
@@ -23,6 +195,7 @@ local Buffer = makeClass {
 		self._undoList = {{children = {}}, n = 1}
 		self._undoIndex = 1
 		self._trackedPositions = weakMap()
+		self._stagingChanges = {}
 		self.syntaxRegistry = syntax.Syntax()
 		self.syntaxName = ""
 		self.lastChangeStart = self:trackPosition()
@@ -31,6 +204,7 @@ local Buffer = makeClass {
 		self.lastFinishedSelectionStart = self:trackPosition()
 		self.lastFinishedSelectionEnd = self:trackPosition()
 		self.lastFinishedSelectionMeta = nil
+		self.insertStagingStack = {}
 	end,
 	setEditor = function(self, editor)
 		self._editor = editor
@@ -45,11 +219,102 @@ local Buffer = makeClass {
 			self._editor:echoErr(...)
 		end
 	end,
-	getLineCount = function(self)
+	getLineCountNonStaging = function(self)
 		return #self._lines
 	end,
-	getLine = function(self, i)
+	getLineCount = function(self)
+		local numLines = self:getLineCountNonStaging()
+		for _, change in ipairs(self._stagingChanges) do
+			if change:isVisible() then
+				local _, _, _, edY, _, newEdY = change:getBounds()
+				numLines = numLines + (newEdY - edY)
+			end
+		end
+		return numLines
+	end,
+	getLineNonStaging = function(self, i)
 		return self._lines[i]
+	end,
+	getLine = function(self, i)
+		local changeIndex = 1
+		local change = self._stagingChanges[changeIndex]
+		local line = nil
+		local di = 0
+		while change do
+			local _, begY, edX, edY, _, newEdY = change:getBounds()
+			if begY >= i then
+				break
+			end
+			if change:isVisible() then
+				local txt = change._txt
+				if i < newEdY then
+					return txt[i - begY + 1]
+				elseif i == newEdY then
+					line = self:getLineNonStaging(edY + di) or ""
+					if begY == edY then
+						line = safeencoding.sub(line, edX + 1)
+					end
+					line = txt[#txt] .. line
+				end
+				di = di - (newEdY - edY)
+			end
+			changeIndex = changeIndex + 1
+			change = self._stagingChanges[changeIndex]
+		end
+		if line == nil then
+			line = self:getLineNonStaging(i + di) or ""
+		end
+		while change do
+			if change:isVisible() then
+				local begX, begY, edX, edY, newEdX, newEdY = change:getBounds()
+				local txt = change._txt
+				local suffix
+				if begY == edY then
+					suffix = safeencoding.sub(line, edX + 1)
+				else
+					local followingLine = self:getLineNonStaging(edY + di) or ""
+					suffix = safeencoding.sub(followingLine, edX + 1)
+				end
+				di = di - (newEdY - edY)
+				line = safeencoding.sub(line, 1, begX - 1)
+				line = line .. txt[1]
+				if newEdY > begY then
+					return line
+				end
+				line = line .. suffix
+			end
+			changeIndex = changeIndex + 1
+			change = self._stagingChanges[changeIndex]
+		end
+		return line
+	end,
+	_insertLine = function(self, i, line)
+		local changeIndex = 1
+		while self._stagingChanges[changeIndex] do
+			local change = self._stagingChanges[changeIndex]
+			local _, begY, _, edY, _, newEdY = change:getBounds()
+			if begY >= i then
+				break
+			end
+			if change:isVisible() then
+				i = i + (newEdY - edY)
+			end
+		end
+		table.insert(self._lines, i, line)
+	end,
+	_removeLine = function(self, i)
+		local changeIndex = 1
+		while self._stagingChanges[changeIndex] do
+			local change = self._stagingChanges[changeIndex]
+			local _, begY, _, edY, _, newEdY = change:getBounds()
+			if begY >= i then
+				break
+			end
+			if change:isVisible() then
+				i = i + (newEdY - edY)
+			end
+		end
+		return table.remove(self._lines, i)
 	end,
 	getScopedLineCache = function(self, i, scope)
 		if scope == nil then
@@ -90,6 +355,7 @@ local Buffer = makeClass {
 			lines[1] = ""
 			cacheRoot[1] = weakMap()
 		end
+		self:discardStagingChanges()
 		local oldLines = self._lines
 		self._lines = lines
 		self._cacheRoot = cacheRoot
@@ -172,11 +438,12 @@ local Buffer = makeClass {
 			table.insert(result, "")
 			return result
 		end
+		local numLines = self:getLineCount()
 		for i = begY, edY do
-			if i < 1 or i > #self._lines then
+			if i < 1 or i > numLines then
 				table.insert(result, "")
 			else
-				local line = self._lines[i] or ""
+				local line = self:getLine(i) or ""
 				if i == edY then
 					if edX < 1 then
 						line = ""
@@ -195,6 +462,7 @@ local Buffer = makeClass {
 		return result
 	end,
 	setTextBetween = function(self, txt, begX, begY, edX, edY)
+		self:commitStagingChanges()
 		local oldTxt = self:getTextBetween(begX, begY, edX, edY)
 		self:_setTextBetweenImpl(txt, begX, begY, edX, edY)
 		txt = itertools.collect(ipairs(txt))
@@ -223,9 +491,8 @@ local Buffer = makeClass {
 			error()
 			return
 		end
-		local oldTxt = {}
-		local begLine = self._lines[begY] or ""
-		local edLine = self._lines[edY] or ""
+		local begLine = self:getLine(begY) or ""
+		local edLine = self:getLine(edY) or ""
 		local prefix, suffix
 		if begX > 1 then
 			prefix = safeencoding.sub(begLine, 1, begX - 1)
@@ -238,8 +505,7 @@ local Buffer = makeClass {
 			suffix = edLine
 		end
 		for i = edY, begY, -1 do
-			table.remove(self._lines, i)
-			table.remove(self._cacheRoot, i)
+			self:_removeLine(i)
 		end
 		for i, line in itertools.reversedIpairs(txt) do
 			if i == #txt then
@@ -248,8 +514,7 @@ local Buffer = makeClass {
 			if i == 1 then
 				line = prefix .. line
 			end
-			table.insert(self._lines, begY, line)
-			table.insert(self._cacheRoot, begY, weakMap())
+			self:_insertLine(begY, line)
 		end
 		local newEdY = begY + #txt - 1
 		local newEdX
@@ -257,6 +522,19 @@ local Buffer = makeClass {
 			newEdX = safeencoding.len(prefix .. txt[1])
 		else
 			newEdX = safeencoding.len(txt[#txt])
+		end
+		self:adjustPositionsAndCache(begX, begY, edX, edY, newEdX, newEdY)
+		self.lastChangeStart.y = begY
+		self.lastChangeStart.x = begX
+		self.lastChangeEnd.y = newEdY
+		self.lastChangeEnd.x = newEdX
+	end,
+	adjustPositionsAndCache = function(self, begX, begY, edX, edY, newEdX, newEdY)
+		for i = edY, begY, -1 do
+			table.remove(self._cacheRoot, i)
+		end
+		for i = begY, newEdY do
+			table.insert(self._cacheRoot, i, weakMap())
 		end
 		for pos in pairs(self._trackedPositions) do
 			if pos.y > begY or pos.y == begY and pos.x >= begX then
@@ -284,10 +562,6 @@ local Buffer = makeClass {
 				end
 			end
 		end
-		self.lastChangeStart.y = begY
-		self.lastChangeStart.x = begX
-		self.lastChangeEnd.y = newEdY
-		self.lastChangeEnd.x = newEdX
 	end,
 	setFilename = function(self, name)
 		self._filename = name
@@ -346,6 +620,80 @@ local Buffer = makeClass {
 		local pos = TrackedPosition()
 		self._trackedPositions[pos] = true
 		return pos
+	end,
+	startStagingChange = function(self, begX, begY, edX, edY)
+		local change = StagingChange(self, begX, begY, edX, edY)
+		local startPos = change._startPos
+		local i = 1
+		-- Consider binary search if a big number of changes is expected
+		while self._stagingChanges[i] do
+			local other = self._stagingChanges[i]
+			local cmp = startPos:compareTo(other._startPos)
+			if cmp >= 0 then
+				break
+			end
+			i = i + 1
+		end
+		table.insert(self._stagingChanges, i, change)
+		return change
+	end,
+	cleanFinalizedChanges = function(self)
+		local i = #self._stagingChanges
+		while i > 0 do
+			if self._stagingChanges[i]._finalized then
+				table.remove(self._stagingChanges, i)
+			end
+			i = i - 1
+		end
+	end,
+	commitStagingChanges = function(self)
+		for _, change in ipairs(self._stagingChanges) do
+			if not change:isFinalized() then
+				change:commit()
+			end
+		end
+		self._stagingChanges = {}
+	end,
+	discardStagingChanges = function(self)
+		for _, change in ipairs(self._stagingChanges) do
+			if not change:isFinalized() then
+				change:discard()
+			end
+		end
+		self._stagingChanges = {}
+	end,
+	findStagingChangeByPos = function(self, pos, opts)
+		opts = opts or {}
+		local i = 1
+		-- Consider binary search if a big number of changes is expected
+		while self._stagingChanges[i] do
+			local change = self._stagingChanges[i]
+			local begX, begY, _, _, newEdX, newEdY = change:getBounds()
+			if opts.exclusive then
+				begX = begX - 1
+			end
+			local cmp = TrackedPosition.compareTo(pos, {x = begX, y = begY})
+			if cmp >= 0 then
+				if opts.onePastEnd then
+					newEdX = newEdX + 1
+				end
+				if TrackedPosition.compareTo(pos, {x = newEdX, y = newEdY}) <= 0 then
+					local relY = pos.y - begY + 1
+					local relX
+					if relY == 1 then
+						relX = pos.x - begX
+						if not opts.exclusive then
+							relX = relX + 1
+						end
+					else
+						relX = pos.x
+					end
+					return change, relX, relY
+				end
+			end
+			i = i + 1
+		end
+		return nil, nil, nil
 	end,
 }
 

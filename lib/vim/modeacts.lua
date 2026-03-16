@@ -596,7 +596,10 @@ local normalActions = {
 		helpers.pushModeInsert(editor)
 	end,
 	a = function(editor)
+		local repeatCount = helpers.getRepeatCount0(editor)
+		helpers.setRepeatCount(editor, 0)
 		helpers.performCursorMotion(editor, helpers.textObjects.characterForward, {onePastEnd = true})
+		helpers.setRepeatCount(editor, repeatCount)
 		helpers.pushModeInsert(editor)
 	end,
 	I = function(editor)
@@ -710,14 +713,14 @@ local normalActions = {
 }
 
 local insertActions = {
-	["<tab>"] = function(editor)
+	["<tab>"] = function(editor, change)
 		return true
 	end,
-	["<space>"] = function(editor)
+	["<space>"] = function(editor, change)
 		helpers.insertTextAtCursor(editor, {" "})
 		return false
 	end,
-	["<cr>"] = function(editor)
+	["<cr>"] = function(editor, change)
 		local buf = editor:getCurrentBuffer()
 		if buf == nil then
 			return
@@ -732,7 +735,7 @@ local insertActions = {
 		helpers.insertTextAtCursor(editor, {"", indent})
 		return false
 	end,
-	["<bs>"] = function(editor)
+	["<bs>"] = function(editor, change)
 		local toCtx = helpers.makeMotionContext(editor)
 		if toCtx == nil then
 			return true
@@ -756,15 +759,15 @@ local insertActions = {
 		helpers.updateCursorFromMotionContext(editor, toCtx)
 		return false
 	end,
-	["<C-r>+"] = function(editor)
+	["<C-r>+"] = function(editor, change)
 		helpers.expandPaste(editor, {noModeMap = true, noLangMap = true})
 		return false
 	end,
-	["<S-insert>"] = function(editor)
+	["<S-insert>"] = function(editor, change)
 		helpers.insertTextAtCursor(editor, helpers.getRegisterValueText(editor, helpers.getPasteDataAsRegister(editor)))
 		return false
 	end,
-	["<C-v>x"] = function(editor)
+	["<C-v>x"] = function(editor, change)
 		local charCode = 0
 		for _ = 1, 2 do
 			local nibbleNum = helpers.pullHexDigit(editor)
@@ -781,7 +784,7 @@ local insertActions = {
 		end
 		return false
 	end,
-	["<C-v>u"] = function(editor)
+	["<C-v>u"] = function(editor, change)
 		local charCode = 0
 		for _ = 1, 4 do
 			local nibbleNum = helpers.pullHexDigit(editor)
@@ -1072,7 +1075,7 @@ local function makeOperatorPendingMotion(toDef)
 end
 
 local function makeInsertMotion(toDef)
-	return function(editor)
+	return function(editor, change)
 		if not helpers.performCursorMotion(editor, toDef, {onePastEnd = true}) then
 			return nil
 		end
@@ -1081,7 +1084,7 @@ local function makeInsertMotion(toDef)
 end
 
 local function makeInsertScrollAction(op)
-	return function(editor)
+	return function(editor, change)
 		op(editor, {onePastEnd = true})
 		return false
 	end
