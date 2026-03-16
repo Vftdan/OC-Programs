@@ -623,9 +623,17 @@ local normalActions = {
 		local line = buf:getLine(cursorToCtx.y)
 		local indentLen = (strptn.firstNonSpace(line) or safeencoding.len(line) + 1) - 1
 		local indent = safeencoding.sub(line, 1, indentLen)
+		local repeatCount = helpers.getRepeatCount0(editor)
+		helpers.setRepeatCount(editor, 0)
 		helpers.performCursorMotion(editor, helpers.textObjects.eol, {onePastEnd = true})
+		helpers.setRepeatCount(editor, repeatCount)
+		local cursorTo = helpers.makeFinalizedEmptyCursorMotion(editor)
+		local change = buf:startStagingChange(helpers.getTextObjectEnds(editor, cursorTo))
+		table.insert(buf.insertStagingStack, change)
 		helpers.insertTextAtCursor(editor, {"", indent})
-		helpers.pushModeInsert(editor)
+		table.remove(buf.insertStagingStack)
+		editor:render()
+		helpers.pushModeInsert(editor, change)
 	end,
 	O = function(editor)
 		local buf = editor:getCurrentBuffer()
@@ -636,13 +644,22 @@ local normalActions = {
 		local line = buf:getLine(cursorToCtx.y)
 		local indentLen = (strptn.firstNonSpace(line) or safeencoding.len(line) + 1) - 1
 		local indent = safeencoding.sub(line, 1, indentLen)
+		local repeatCount = helpers.getRepeatCount0(editor)
+		helpers.setRepeatCount(editor, 0)
 		helpers.performCursorMotion(editor, helpers.textObjects.sol)
+		helpers.setRepeatCount(editor, repeatCount)
+		local cursorTo = helpers.makeFinalizedEmptyCursorMotion(editor)
+		local change = buf:startStagingChange(helpers.getTextObjectEnds(editor, cursorTo))
+		table.insert(buf.insertStagingStack, change)
 		helpers.insertTextAtCursor(editor, {indent, ""})
+		table.remove(buf.insertStagingStack)
 		cursorToCtx = helpers.makeMotionContext(editor)
 		cursorToCtx.y = cursorToCtx.y - 1
 		cursorToCtx.x = indentLen + 1
 		helpers.updateCursorFromMotionContext(editor, cursorToCtx)
-		helpers.pushModeInsert(editor)
+		editor:render()
+		helpers.pushModeInsert(editor, change)
+		-- FIXME cursor jumps somewhere in the next line after finishing
 	end,
 	v = function(editor)
 		helpers.pushModeVisual(editor)

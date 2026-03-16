@@ -767,11 +767,11 @@ local function pushModeCommandLine(editor, opts)
 	editor:render()
 end
 
-local function pushModeInsert(editor)
+local function pushModeInsert(editor, change)
 	if modes == nil then
 		modes = require("vim.modes")
 	end
-	runMode(editor, modes.insertMode)
+	runMode(editor, modes.insertMode, change)
 	performCursorMotion(editor, textObjects.characterBackward)
 end
 
