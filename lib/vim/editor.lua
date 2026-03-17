@@ -58,6 +58,11 @@ local Editor = makeClass {
 		self._interruptRaising = true
 		self._interruptOptions = opts
 	end,
+	clearSoftInterrupt = function(self)
+		self.typeahead:clearInterrupt()
+		self._interruptRaising = false
+		self._interruptOptions = nil
+	end,
 	registerBuffer = function(self, buf)
 		buf:setEditor(self)
 		local n = self._buffers.n + 1

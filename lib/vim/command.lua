@@ -424,6 +424,10 @@ local commands = {
 	setfiletype = function(editor, argStr)
 		option.options.syntax:set(editor, {value = argStr, scope = "local"})
 	end,
+	["silent!"] = function(editor, argStr)
+		execute(editor, argStr)
+		editor:clearSoftInterrupt()
+	end,
 }
 
 local function registerMappingCommand(name, tables, isRecursive)
