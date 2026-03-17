@@ -14,6 +14,8 @@ local autocmd = require("vim.autocmd")
 local Editor = makeClass {
 	init = function(self)
 		self._running = true
+		self._interruptRaising = false
+		self._interruptOptions = true
 		self._buffers = {n = 0}
 		self._windows = {n = 0}
 		self._activeWinId = 0
@@ -25,6 +27,9 @@ local Editor = makeClass {
 		self._scrollOption = 10
 		self._modeMessage = nil
 		self.typeahead:addPreWaitHandler(function() self:render() end)
+		self.typeahead.onSoftInterrupt = function()
+			self:raiseSoftInterrupt{message = "Interrupted"}
+		end
 		self._interpretedStyleStacks = Trie()
 		self._cmdlineRunning = false
 		self._cmdlineCursor = nil
@@ -44,6 +49,14 @@ local Editor = makeClass {
 	terminate = function(self)
 		self._running = false
 		self.typeahead:terminate()
+	end,
+	notInterrupted = function(self)
+		return self._running and not self._interruptRaising
+	end,
+	raiseSoftInterrupt = function(self, opts)
+		opts = opts or {}
+		self._interruptRaising = true
+		self._interruptOptions = opts
 	end,
 	registerBuffer = function(self, buf)
 		buf:setEditor(self)
@@ -98,6 +111,16 @@ local Editor = makeClass {
 		while self._running do
 			self:render()
 			helpers.runMode(self, modes.normalMode)
+			self.typeahead:clearInterrupt()
+			if self._interruptRaising then
+				local opts = self._interruptOptions
+				self._interruptRaising = false
+				self._interruptOptions = nil
+				self.typeahead:clear()
+				if opts.message then
+					self:echoErr(opts.message)
+				end
+			end
 		end
 	end,
 	invalidateDisplay = function(self)

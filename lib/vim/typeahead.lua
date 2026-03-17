@@ -211,6 +211,7 @@ local Typeahead = makeClass {
 		self.ignoreHold = {}
 		self._queue = {}
 		self._running = true
+		self._interrupted = false
 		self.inputProperties = {mouseX = 1, mouseY = 1, pasteData = ""}
 		self._modeMappings = nil
 		self._langMappings = nil
@@ -220,6 +221,7 @@ local Typeahead = makeClass {
 		self._prefixedModifiers = {}
 		self._expectPasteChunks = false
 		self._lastWasPasted = false
+		self.onSoftInterrupt = nil
 	end,
 	getLength = function(self)
 		return #self._queue
@@ -248,7 +250,7 @@ local Typeahead = makeClass {
 	pull = function(self)
 		local item = table.remove(self._queue, 1)
 		while item == nil do
-			if not self._running then
+			if self:isInterrupted() then
 				return nil
 			end
 			self:waitForEvent()
@@ -261,7 +263,7 @@ local Typeahead = makeClass {
 	_peekRaw = function(self, idx)
 		idx = idx or 1
 		while #self._queue < idx do
-			if not self._running then
+			if self:isInterrupted() then
 				return nil
 			end
 			self:waitForEvent()
@@ -275,9 +277,17 @@ local Typeahead = makeClass {
 		end
 		return item.name
 	end,
+	clear = function(self, idx)
+		while self:getLength() > 0 do
+			self:pull()
+		end
+	end,
 	getPasteData = function(self)
 		while self:getLength() < 1 and self._expectPasteChunks do
 			self:yieldCPU()
+			if self:isInterrupted() then
+				return nil
+			end
 		end
 		return self.inputProperties.pasteData or ""
 	end,
@@ -410,10 +420,19 @@ local Typeahead = makeClass {
 		itertools.update(self._scheduledPropertyUpdate, update)
 	end,
 	_handleNativeEvent = function(self, ev)
-		if events.isInterrupt(ev) then
-			error("Interrupted")
-		end
 		local flag, data
+		local flag, data = events.isInterrupt(ev)
+		if flag then
+			if data.hard then
+				error("Interrupted")
+			end
+			self._interrupted = true
+			local cb = self.onSoftInterrupt
+			if cb then
+				cb()
+			end
+			return
+		end
 		flag, data = events.isKeyPressOrChar(ev)
 		if flag then
 			-- when ctrl is actually held, printable keys are handled by scancode, otherwise by text
@@ -548,6 +567,12 @@ local Typeahead = makeClass {
 	end,
 	terminate = function(self)
 		self._running = false
+	end,
+	clearInterrupt = function(self)
+		self._interrupted = false
+	end,
+	isInterrupted = function(self)
+		return not self._running or self._interrupted
 	end,
 	stringifyQueue = function(self)
 		local seq = {}

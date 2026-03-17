@@ -52,6 +52,9 @@ end
 local function expandPaste(editor, opts)
 	opts = opts or {}
 	local str = editor.typeahead:getPasteData()
+	if not str then
+		return
+	end
 	for i = 1, safeencoding.len(str) do
 		local ch = safeencoding.sub(str, i, i)
 		if ch == "\n" or ch == "\r" then
@@ -211,6 +214,9 @@ end
 
 local function getPasteDataAsRegister(editor)
 	local str = editor.typeahead:getPasteData()
+	if not str then
+		return nil
+	end
 	local txt = strptn.splitBy(str, "\n")
 	return {lines = txt}
 end
@@ -451,7 +457,7 @@ local function performSearchMotion(editor, toCtx, opts)
 	if opts.previous then
 		backward = not backward
 	end
-	while editor:isRunning() and toCtx.y >= 1 and toCtx.y <= lineCount do
+	while editor:notInterrupted() and toCtx.y >= 1 and toCtx.y <= lineCount do
 		newX, repeatCount = findSearchStringInLine(editor, searchString, toCtx, {backward = backward, patternEnd = opts.patternEnd, count = repeatCount})
 		if newX then
 			toCtx.x = newX
@@ -488,7 +494,7 @@ local function performWordMotion(editor, toCtx, opts)
 	local repeatCount = getRepeatCount1(editor)
 	local newX
 	local yieldCounter = 0
-	while editor:isRunning() and toCtx.y >= 1 and toCtx.y <= lineCount do
+	while editor:notInterrupted() and toCtx.y >= 1 and toCtx.y <= lineCount do
 		newX, repeatCount = findWordInLine(editor, toCtx, {backward = opts.backward, wordEnd = opts.wordEnd, WORDs = opts.WORDs, count = repeatCount})
 		if newX then
 			toCtx.x = newX
@@ -675,13 +681,19 @@ end
 local function pullCountString(editor)
 	editor.typeahead:applyModeMappings()
 	local ch = editor.typeahead:peek()
+	if not ch then
+		return nil
+	end
 	if ch:find("[^1-9]") then
 		return ""
 	end
 	editor.typeahead:pull()
 	local builder = {ch}
-	while editor:isRunning() do
+	while editor:notInterrupted() do
 		ch = editor.typeahead:peek()
+		if not ch then
+			return nil
+		end
 		if ch:find("%D") then
 			return table.concat(builder)
 		end
@@ -693,6 +705,9 @@ end
 
 local function pullHexDigit(editor)
 	local nibbleChar = typeahead.getSelfInsert(editor.typeahead:pull())
+	if not nibbleChar then
+		return nil
+	end
 	if not nibbleChar:find("^[0-9A-Fa-f]$") then
 		return nil
 	end
@@ -711,6 +726,9 @@ local function pullInputCharacter(editor)
 	editor.typeahead:applyModeMappings()
 	editor.typeahead:applyLangMappings()
 	local ch = typeahead.getSelfInsert(editor.typeahead:pull())
+	if not ch then
+		return nil
+	end
 	if safeencoding.len(ch) ~= 1 then
 		return nil
 	end

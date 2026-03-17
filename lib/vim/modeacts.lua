@@ -94,12 +94,19 @@ local pasteOperator = function(editor, to)
 			yieldCounter = 0
 			editor.typeahead:yieldCPU()
 		end
+		if not editor:notInterrupted() then
+			return
+		end
 	end
 end
 
 local function clipboardPasteOperator(editor, to)
 	local oldReg = helpers.getSelectedRegister(editor)
-	helpers.setSelectedRegister(editor, helpers.getPasteDataAsRegister(editor))
+	local newReg = helpers.getPasteDataAsRegister(editor)
+	if not newReg then
+		return
+	end
+	helpers.setSelectedRegister(editor, newReg)
 	pasteOperator(editor, to)
 	helpers.setSelectedRegister(editor, oldReg)
 end

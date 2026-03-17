@@ -654,7 +654,7 @@ local function sourceFileHandle(editor, fh)
 			return
 		end
 		execute(editor, cmd)
-		if not editor:isRunning() then
+		if not editor:notInterrupted() then
 			return
 		end
 	end

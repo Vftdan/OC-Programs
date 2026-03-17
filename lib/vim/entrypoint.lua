@@ -8,25 +8,25 @@ local command = require("vim.command")
 local function runInitCommands(editor, preRcCommands, postRcCommands, rcFile)
 	for _, cmd in ipairs(preRcCommands) do
 		command.execute(editor, cmd)
-		if not editor:isRunning() then
+		if not editor:notInterrupted() then
 			return
 		end
 	end
 	if rcFile ~= "NONE" then
 		command.runtimeFile(editor, "defaults.vim", true)
-		if not editor:isRunning() then
+		if not editor:notInterrupted() then
 			return
 		end
 	end
 	if rcFile ~= "NORC" and rcFile ~= "NONE" then
 		command.sourceFile(editor, rcFile)
-		if not editor:isRunning() then
+		if not editor:notInterrupted() then
 			return
 		end
 	end
 	for _, cmd in ipairs(postRcCommands) do
 		command.execute(editor, cmd)
-		if not editor:isRunning() then
+		if not editor:notInterrupted() then
 			return
 		end
 	end

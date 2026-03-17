@@ -138,6 +138,7 @@ end
 local function isInterrupt(native)
 	if native[1] == "interrupted" then
 		return true, {
+			hard = false,
 		}
 	end
 	return false

@@ -17,17 +17,14 @@ local function normalModeSingle(editor)
 	else
 		helpers.setRepeatCount(editor, 0)
 	end
-	while editor:isRunning() do
+	while editor:notInterrupted() do
 		i = i + 1
 		editor:render()
 		if i == 1 then
 			editor.typeahead:applyModeMappings()
 		end
 		local key = editor.typeahead:peek(i)
-		if key == nil then
-			return nil
-		end
-		if key == "C-c" then
+		if key == nil or key == "C-c" then
 			-- Clear typeahead
 			for _ = 1, i do
 				editor.typeahead:pull()
@@ -61,7 +58,7 @@ local function normalModeSingle(editor)
 end
 
 local function normalMode(editor)
-	while editor:isRunning() do
+	while editor:notInterrupted() do
 		if normalModeSingle(editor) == nil then
 			break
 		end
@@ -80,17 +77,14 @@ local function textObject(editor)
 		local countMultiplier = helpers.getRepeatCount1(editor)
 		helpers.setRepeatCount(editor, tonumber(countStr) * countMultiplier)
 	end
-	while editor:isRunning() do
+	while editor:notInterrupted() do
 		i = i + 1
 		editor:render()
 		if i == 1 then
 			editor.typeahead:applyModeMappings()
 		end
 		local key = editor.typeahead:peek(i)
-		if key == nil then
-			return nil
-		end
-		if key == "C-c" then
+		if key == nil or key == "C-c" then
 			-- Clear typeahead
 			for _ = 1, i do
 				editor.typeahead:pull()
@@ -147,7 +141,7 @@ local function insertModeSingle(editor, change)
 	local i = 0
 	local prefix = {}
 	helpers.setRepeatCount(editor, 0)
-	while editor:isRunning() do
+	while editor:notInterrupted() do
 		i = i + 1
 		editor:render()
 		if i == 1 then
@@ -155,10 +149,7 @@ local function insertModeSingle(editor, change)
 			editor.typeahead:applyLangMappings()
 		end
 		local key = editor.typeahead:peek(i)
-		if key == nil then
-			return nil
-		end
-		if key == "C-c" then
+		if key == nil or key == "C-c" then
 			-- Clear typeahead
 			for _ = 1, i do
 				editor.typeahead:pull()
@@ -221,16 +212,22 @@ local function insertMode(editor, change)
 	end
 	table.insert(buf.insertStagingStack, change)
 	editor:setModeMessage("-- INSERT --")
-	while editor:isRunning() do
+	while editor:notInterrupted() do
 		if insertModeSingle(editor, change) == nil then
 			break
 		end
 		editor:render()
 	end
 	if not change:isFinalized() then
-		if repeatCount > 1 then
+		if repeatCount > 1 and editor:notInterrupted() then
 			local txt = change:getText()
-			for _ = 2, repeatCount do
+			for yieldCounter = 2, repeatCount do
+				if yieldCounter % 10 == 0 then 
+					editor.typeahead:yieldCPU()
+					if not editor:notInterrupted() then
+						break
+					end
+				end
 				change:splice(txt, 1, 1, 0, 1)
 			end
 		end
@@ -249,7 +246,7 @@ local function visualMode(editor, toCtx)
 	end
 	editor.typeahead:setModeMappings(editor.mappings.v)
 	local shouldEnd = false
-	while editor:isRunning() and not shouldEnd do
+	while editor:notInterrupted() and not shouldEnd do
 		if not toCtx then
 			toCtx = helpers.makeMotionContext(editor)
 			toCtx.linewise = false
@@ -277,17 +274,14 @@ local function visualMode(editor, toCtx)
 		else
 			helpers.setRepeatCount(editor, 0)
 		end
-		while editor:isRunning() do
+		while editor:notInterrupted() do
 			i = i + 1
 			editor:render()
 			if i == 1 then
 				editor.typeahead:applyModeMappings()
 			end
 			local key = editor.typeahead:peek(i)
-			if key == nil then
-				return nil
-			end
-			if key == "C-c" then
+			if key == nil or key == "C-c" then
 				-- Clear typeahead
 				for _ = 1, i do
 					editor.typeahead:pull()
@@ -344,7 +338,7 @@ local cmdline = function(editor, opts)
 		local i = 0
 		local prefix = {}
 		helpers.setRepeatCount(editor, 0)
-		while editor:isRunning() do
+		while editor:notInterrupted() do
 			i = i + 1
 			editor:render()
 			if i == 1 then
@@ -352,10 +346,7 @@ local cmdline = function(editor, opts)
 				editor.typeahead:applyLangMappings()
 			end
 			local key = editor.typeahead:peek(i)
-			if key == nil then
-				return nil
-			end
-			if key == "C-c" then
+			if key == nil or key == "C-c" then
 				-- Clear typeahead
 				for _ = 1, i do
 					editor.typeahead:pull()
