@@ -241,7 +241,7 @@ local Editor = makeClass {
 		self._cmdlineRunning = flag
 	end,
 	isCmdlineRunning = function(self)
-		return self._running and self._cmdlineRunning
+		return self._running and not self._interruptRaising and self._cmdlineRunning
 	end,
 	setCmdlineCursor = function(self, x)
 		self._cmdlineCursor = x
