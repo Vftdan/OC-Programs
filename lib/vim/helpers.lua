@@ -617,6 +617,10 @@ local function populateStatusLineData(editor, win, fmt)
 					local percents = math.floor(scrollY / maxScroll * 100)
 					itemText = ("% 2d%%"):format(percents)
 				end
+			elseif ch == "m" then
+				itemText = buf:isModified() and "[+]" or ""
+			elseif ch == "M" then
+				itemText = buf:isModified() and ",+" or ""
 			end
 			if itemNumber then
 				itemText = tostring(itemNumber)

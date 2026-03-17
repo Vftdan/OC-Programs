@@ -124,6 +124,66 @@ local commands = {
 		buf:write(opts)
 	end,
 	quit = function(editor, argStr)
+		-- TODO get all buffers
+		local buffers = {editor:getCurrentBuffer()}
+		for _, buf in ipairs(buffers) do
+			if buf:isModified() then
+				editor:echoErr("No write since last change (add ! to override)")
+				return
+			end
+		end
+		editor:terminate()
+	end,
+	["quit!"] = function(editor, argStr)
+		editor:terminate()
+	end,
+	wq = function(editor, argStr, rangeTable)
+		if #argStr > 0 or #rangeTable.elements > 0 then
+			editor:echoErr("Arguments and range are not allowed for :wq (add ! to override and forcibly quit)")
+			return
+		end
+		local buf = editor:getCurrentBuffer()
+		if buf == nil then
+			return
+		end
+		local opts = {}
+		if #argStr > 0 then
+			opts.filename = argStr
+		end
+		buf:write(opts)
+		if buf:isModified() then
+			return
+		end
+		-- TODO get all buffers
+		local buffers = {editor:getCurrentBuffer()}
+		for _, buf in ipairs(buffers) do
+			if buf:isModified() then
+				editor:echoErr("No write since last change (add ! to override)")
+				return
+			end
+		end
+		editor:terminate()
+	end,
+	["wq!"] = function(editor, argStr, rangeTable)
+		local buf = editor:getCurrentBuffer()
+		if buf ~= nil then
+			local opts = {}
+			opts.overwrite = true
+			if #argStr > 0 then
+				opts.filename = argStr
+			end
+			if #rangeTable.elements > 0 then
+				resolveRange(editor, rangeTable)
+				if rangeTable.failure then
+					editor:echoErr(rangeTable.failure)
+					return
+				else
+					opts.firstLine = rangeTable.lines[1]
+					opts.lastLine = rangeTable.lines[2]
+				end
+			end
+			buf:write(opts)
+		end
 		editor:terminate()
 	end,
 	nohlsearch = function(editor, argStr)
@@ -421,6 +481,7 @@ end
 
 commands.w = commands.write
 commands.q = commands.quit
+commands["q!"] = commands["quit!"]
 commands.nohl = commands.nohlsearch
 commands.so = commands.source
 commands.hi = commands.highlight

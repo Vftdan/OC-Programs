@@ -194,6 +194,7 @@ local Buffer = makeClass {
 		self._cacheRoot = {}
 		self._undoList = {{children = {}}, n = 1}
 		self._undoIndex = 1
+		self._diskUndoIndex = 1
 		self._trackedPositions = weakMap()
 		self._stagingChanges = {}
 		self.syntaxRegistry = syntax.Syntax()
@@ -371,11 +372,13 @@ local Buffer = makeClass {
 		self._undoList[newStateIndex] = newState
 		self._undoList.n = newStateIndex
 		self._undoIndex = newStateIndex
+		self._diskUndoIndex = self._undoIndex
 		return found
 	end,
 	write = function(self, opts)
 		opts = opts or {}
 		-- TODO writebackup
+		-- TODO opts.overwrite handling
 		filename = opts.filename or self._filename
 		if not filename then
 			self:_echoError("No file name")
@@ -397,6 +400,9 @@ local Buffer = makeClass {
 		end
 		numLines = numLines - bufOffset
 		local writtenLines = 0
+		if filename == self._filename then
+			self._diskUndoIndex = -1
+		end
 		if numLines > 0 then
 			success, reason = pcall(f.write, f, self:getLine(1 + bufOffset))
 			if success then
@@ -424,6 +430,9 @@ local Buffer = makeClass {
 		if not success then
 			self:_echoError("Error while closing:", reason, "; Potentially", writtenInfo)
 			return
+		end
+		if filename == self._filename and bufOffset == 0 and numLines == self:getLineCount() then
+			self._diskUndoIndex = self._undoIndex
 		end
 		self:_echoInfo(writtenInfo)
 	end,
@@ -615,6 +624,9 @@ local Buffer = makeClass {
 		self:_setTextBetweenImpl(state.added, begX, begY, edX, edY)
 		self._undoIndex = stateIndex
 		return true
+	end,
+	isModified = function(self)
+		return self._undoIndex ~= self._diskUndoIndex
 	end,
 	trackPosition = function(self)
 		local pos = TrackedPosition()
