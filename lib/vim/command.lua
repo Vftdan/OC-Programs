@@ -87,13 +87,13 @@ local function optionCommand(editor, argStr, opts)
 		end
 
 		if method == "trail" then
-			editor:echoErr("Trailing characters:", arg)
+			editor:raiseSoftInterrupt{messageTable = table.pack("Trailing characters:", arg)}
 		else
 			local opt = option.options[optName]
 			if not opt then
-				editor:echoErr("Unknown option:", optName)
+				editor:raiseSoftInterrupt{messageTable = table.pack("Unknown option:", optName)}
 			elseif not opt[method] then
-				editor:echoErr("Invalid option access:", method, optName)
+				editor:raiseSoftInterrupt{messageTable = table.pack("Invalid option access:", method, optName)}
 			else
 				opt[method](opt, editor, {scope = opts.scope, value = value})
 			end
@@ -114,7 +114,7 @@ local commands = {
 		if #rangeTable.elements > 0 then
 			resolveRange(editor, rangeTable)
 			if rangeTable.failure then
-				editor:echoErr(rangeTable.failure)
+				editor:raiseSoftInterrupt{message = rangeTable.failure}
 				return
 			else
 				opts.firstLine = rangeTable.lines[1]
@@ -128,7 +128,7 @@ local commands = {
 		local buffers = {editor:getCurrentBuffer()}
 		for _, buf in ipairs(buffers) do
 			if buf:isModified() then
-				editor:echoErr("No write since last change (add ! to override)")
+				editor:raiseSoftInterrupt{message = "No write since last change (add ! to override)"}
 				return
 			end
 		end
@@ -139,7 +139,7 @@ local commands = {
 	end,
 	wq = function(editor, argStr, rangeTable)
 		if #argStr > 0 or #rangeTable.elements > 0 then
-			editor:echoErr("Arguments and range are not allowed for :wq (add ! to override and forcibly quit)")
+			editor:raiseSoftInterrupt{message = "Arguments and range are not allowed for :wq (add ! to override and forcibly quit)"}
 			return
 		end
 		local buf = editor:getCurrentBuffer()
@@ -158,7 +158,7 @@ local commands = {
 		local buffers = {editor:getCurrentBuffer()}
 		for _, buf in ipairs(buffers) do
 			if buf:isModified() then
-				editor:echoErr("No write since last change (add ! to override)")
+				editor:raiseSoftInterrupt{message = "No write since last change (add ! to override)"}
 				return
 			end
 		end
@@ -175,7 +175,7 @@ local commands = {
 			if #rangeTable.elements > 0 then
 				resolveRange(editor, rangeTable)
 				if rangeTable.failure then
-					editor:echoErr(rangeTable.failure)
+					editor:raiseSoftInterrupt{message = rangeTable.failure}
 					return
 				else
 					opts.firstLine = rangeTable.lines[1]
@@ -195,17 +195,17 @@ local commands = {
 	end,
 	source = function(editor, argStr)
 		if not sourceFile(editor, argStr) then
-			editor:echoErr("Could not find file:", argStr)
+			editor:raiseSoftInterrupt{messageTable = table.pack("Could not find file:", argStr)}
 		end
 	end,
 	runtime = function(editor, argStr)
 		if not runtimeFile(editor, argStr) then
-			editor:echoErr("Could not find file in the runtime directories:", argStr)
+			editor:raiseSoftInterrupt{messageTable = table.pack("Could not find file in the runtime directories:", argStr)}
 		end
 	end,
 	["runtime!"] = function(editor, argStr)
 		if not runtimeFile(editor, argStr, true) then
-			editor:echoErr("Could not find file in the runtime directories:", argStr)
+			editor:raiseSoftInterrupt{messageTable = table.pack("Could not find file in the runtime directories:", argStr)}
 		end
 	end,
 	highlight = function(editor, argStr)
@@ -224,18 +224,18 @@ local commands = {
 		local groupName = args[i]
 		i = i + 1
 		if not groupName then
-			editor:echoErr("Not enough arguments: highlight", argStr)
+			editor:raiseSoftInterrupt{messageTable = table.pack("Not enough arguments: highlight", argStr)}
 			return
 		end
 		if doLink then
 			local targetName = args[i]
 			i = i + 1
 			if not targetName then
-				editor:echoErr("Not enough arguments: highlight", argStr)
+				editor:raiseSoftInterrupt{messageTable = table.pack("Not enough arguments: highlight", argStr)}
 				return
 			end
 			if i <= #args then
-				editor:echoErr("Too many arguments: highlight", argStr)
+				editor:raiseSoftInterrupt{messageTable = table.pack("Too many arguments: highlight", argStr)}
 				return
 			end
 			if useDefault then
@@ -255,14 +255,14 @@ local commands = {
 				if key == "ctermbg" or key == "ctermfg" or key == "ctermsp" then
 					local color = tonumber(value)
 					if not color or color < 0 or color > 15 or color % 1 ~= 0 then
-						editor:echoErr("Invalid cterm color:", value)
+						editor:raiseSoftInterrupt{messageTable = table.pack("Invalid cterm color:", value)}
 					else
 						tbl[key] = color
 					end
 				elseif key == "guibg" or key == "guifg" or key == "guisp" then
 					local color = tonumber("0x" .. value:sub(2))
 					if value:sub(1, 1) ~= "#" or not color or color < 0 or color > 0xFFFFFF or color % 1 ~= 0 then
-						editor:echoErr("Invalid hex color:", value)
+						editor:raiseSoftInterrupt{messageTable = table.pack("Invalid hex color:", value)}
 					else
 						tbl[key] = color
 					end
@@ -271,11 +271,11 @@ local commands = {
 						if item == "bold" or item == "italic" or item == "underline" or item == "reverse" then
 							tbl[item] = true
 						else
-							editor:echoErr("Illegal value:", item)
+							editor:raiseSoftInterrupt{messageTable = table.pack("Illegal value:", item)}
 						end
 					end
 				else
-					editor:echoErr("Illegal argument:", arg)
+					editor:raiseSoftInterrupt{messageTable = table.pack("Illegal argument:", arg)}
 				end
 			end
 			if useDefault then
@@ -292,12 +292,12 @@ local commands = {
 		local subCommand = args[i]
 		i = i + 1
 		if not subCommand then
-			editor:echoErr("Not enough arguments: syntax", argStr)
+			editor:raiseSoftInterrupt{messageTable = table.pack("Not enough arguments: syntax", argStr)}
 			return
 		end
 		if subCommand == "on" then
 			if i <= #args then
-				editor:echoErr("Too many arguments: syntax", argStr)
+				editor:raiseSoftInterrupt{messageTable = table.pack("Too many arguments: syntax", argStr)}
 				return
 			end
 			-- TODO invalidate some syntax caches
@@ -305,7 +305,7 @@ local commands = {
 			editor:invalidateDisplay()
 		elseif subCommand == "off" then
 			if i <= #args then
-				editor:echoErr("Too many arguments: syntax", argStr)
+				editor:raiseSoftInterrupt{messageTable = table.pack("Too many arguments: syntax", argStr)}
 				return
 			end
 			editor.enableSyntax = false
@@ -318,7 +318,7 @@ local commands = {
 			local groupName = args[i]
 			i = i + 1
 			if not groupName then
-				editor:echoErr("Not enough arguments: highlight", argStr)
+				editor:raiseSoftInterrupt{messageTable = table.pack("Not enough arguments: highlight", argStr)}
 				return
 			end
 			local pattern
@@ -331,7 +331,7 @@ local commands = {
 					local begChar = safeencoding.sub(arg, 1, 1)
 					local edChar = safeencoding.sub(arg, argLen, argLen)
 					if begChar ~= edChar then
-						editor:echoErr("Pattern delimiter not found:", arg)
+						editor:raiseSoftInterrupt{messageTable = table.pack("Pattern delimiter not found:", arg)}
 						return
 					end
 					local searchString = safeencoding.sub(arg, 2, argLen - 1)
@@ -342,18 +342,18 @@ local commands = {
 					searchString = strptn.unescapeBackslash(searchString)
 					local success, reason = strptn.validatePtn(searchString)
 					if not success then
-						editor:echoErr(("Invalid search string (%s): %s"):format(reason, searchString))
+						editor:raiseSoftInterrupt{messageTable = table.pack(("Invalid search string (%s): %s"):format(reason, searchString))}
 						return
 					end
 					pattern = searchString
 				elseif arg == "keepend" or arg == "excludenl" then
 					options[arg] = true
 				else
-					editor:echoErr("Invalid argument:", arg)
+					editor:raiseSoftInterrupt{messageTable = table.pack("Invalid argument:", arg)}
 				end
 			end
 			if not pattern then
-				editor:echoErr("Missing pattern: syntax", argStr)
+				editor:raiseSoftInterrupt{messageTable = table.pack("Missing pattern: syntax", argStr)}
 				return
 			end
 			buf.syntaxRegistry:defineMatch(groupName, pattern, options)
@@ -366,7 +366,7 @@ local commands = {
 			local groupName = args[i]
 			i = i + 1
 			if not groupName then
-				editor:echoErr("Not enough arguments: highlight", argStr)
+				editor:raiseSoftInterrupt{messageTable = table.pack("Not enough arguments: highlight", argStr)}
 				return
 			end
 			local pattern
@@ -388,7 +388,7 @@ local commands = {
 			editor:invalidateDisplay()
 		elseif subCommand == "clear" then
 			if i <= #args then
-				editor:echoErr("Too many arguments: syntax", argStr)
+				editor:raiseSoftInterrupt{messageTable = table.pack("Too many arguments: syntax", argStr)}
 				return
 			end
 			local buf = editor:getCurrentBuffer()
@@ -398,21 +398,21 @@ local commands = {
 			buf.syntaxRegistry:clear()
 			editor:invalidateDisplay()
 		else
-			editor:echoErr("Invalid :syntax subcommand", subCommand)
+			editor:raiseSoftInterrupt{messageTable = table.pack("Invalid :syntax subcommand", subCommand)}
 		end
 	end,
 	autocmd = function(editor, argStr)
 		local origArgStr = argStr
 		local argSepPos = strptn.firstUnescapedSpace(argStr)
 		if not argSepPos then
-			editor:echoErr("Not enough arguments: autocmd", origArgStr)
+			editor:raiseSoftInterrupt{messageTable = table.pack("Not enough arguments: autocmd", origArgStr)}
 			return
 		end
 		local events = strptn.splitBy(safeencoding.sub(argStr, 1, argSepPos - 1), ",")
 		argStr = safeencoding.sub(argStr, argSepPos)
 		nonBlankPos = strptn.firstNonSpace(argStr)
 		if not nonBlankPos then
-			editor:echoErr("Not enough arguments: autocmd", origArgStr)
+			editor:raiseSoftInterrupt{messageTable = table.pack("Not enough arguments: autocmd", origArgStr)}
 			return
 		end
 		argStr = safeencoding.sub(argStr, nonBlankPos)
@@ -429,20 +429,20 @@ local commands = {
 local function registerMappingCommand(name, tables, isRecursive)
 	commands[name] = function(editor, argStr, rangeTable)
 		if #rangeTable.elements > 0 then
-			editor:echoErr("No range allowed")
+			editor:raiseSoftInterrupt{message = "No range allowed"}
 			return
 		end
 		local origArgStr = argStr
 		local argSepPos = strptn.firstUnescapedSpace(argStr)
 		if not argSepPos then
-			editor:echoErr("Not enough arguments: " .. name, origArgStr)
+			editor:raiseSoftInterrupt{messageTable = table.pack("Not enough arguments: " .. name, origArgStr)}
 			return
 		end
 		local lhs = keyseq.parseKeySequence(safeencoding.sub(argStr, 1, argSepPos - 1), typeahead.keyNormalisation, typeahead.modifierOrder)
 		argStr = safeencoding.sub(argStr, argSepPos)
 		local nonBlankPos = strptn.firstNonSpace(argStr)
 		if not argSepPos then
-			editor:echoErr("Not enough arguments: " .. name, origArgStr)
+			editor:raiseSoftInterrupt{messageTable = table.pack("Not enough arguments: " .. name, origArgStr)}
 			return
 		end
 		argStr = safeencoding.sub(argStr, nonBlankPos)
@@ -492,7 +492,7 @@ commands.setf = commands.setfiletype
 local function emptyCommand(editor, rangeTable)
 	resolveRange(editor, rangeTable)
 	if rangeTable.failure then
-		editor:echoErr(rangeTable.failure)
+		editor:raiseSoftInterrupt{message = rangeTable.failure}
 	elseif #rangeTable.elements > 0 then
 		local toCtx = helpers.makeMotionContext(editor)
 		toCtx.y = rangeTable.lines[2]
@@ -671,7 +671,7 @@ end
 function execute(editor, cmdStr)
 	local rangeTable, cmdStr = extractRange(editor, cmdStr)
 	if rangeTable.failure then
-		editor:echoErr("Range parsing error:", rangeTable.failure)
+		editor:raiseSoftInterrupt{messageTable = table.pack("Range parsing error:", rangeTable.failure)}
 		return
 	end
 	local nonBlankPos = strptn.firstNonSpace(cmdStr)
@@ -704,7 +704,7 @@ function execute(editor, cmdStr)
 	if commandFun then
 		commandFun(editor, argStr, rangeTable)
 	else
-		editor:echoErr("Not an editor command:", cmdName)
+		editor:raiseSoftInterrupt{messageTable = table.pack("Not an editor command:", cmdName)}
 	end
 end
 

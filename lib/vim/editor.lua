@@ -28,7 +28,7 @@ local Editor = makeClass {
 		self._modeMessage = nil
 		self.typeahead:addPreWaitHandler(function() self:render() end)
 		self.typeahead.onSoftInterrupt = function()
-			self:raiseSoftInterrupt{message = "Interrupted"}
+			self:raiseSoftInterrupt{message = "Interrupted, type :q! and press <enter> to abandon all changes and exit"}
 		end
 		self._interpretedStyleStacks = Trie()
 		self._cmdlineRunning = false
@@ -117,7 +117,9 @@ local Editor = makeClass {
 				self._interruptRaising = false
 				self._interruptOptions = nil
 				self.typeahead:clear()
-				if opts.message then
+				if opts.messageTable then
+					self:echoErr(table.unpack(opts.messageTable, a, opts.messageTable.n))
+				elseif opts.message then
 					self:echoErr(opts.message)
 				end
 			end
