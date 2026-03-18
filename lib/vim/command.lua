@@ -318,7 +318,7 @@ local commands = {
 			local groupName = args[i]
 			i = i + 1
 			if not groupName then
-				editor:raiseSoftInterrupt{messageTable = table.pack("Not enough arguments: highlight", argStr)}
+				editor:raiseSoftInterrupt{messageTable = table.pack("Not enough arguments: syntax", argStr)}
 				return
 			end
 			local pattern
@@ -366,7 +366,7 @@ local commands = {
 			local groupName = args[i]
 			i = i + 1
 			if not groupName then
-				editor:raiseSoftInterrupt{messageTable = table.pack("Not enough arguments: highlight", argStr)}
+				editor:raiseSoftInterrupt{messageTable = table.pack("Not enough arguments: syntax", argStr)}
 				return
 			end
 			local pattern
@@ -385,6 +385,66 @@ local commands = {
 				end
 			end
 			buf.syntaxRegistry:defineKeyword(groupName, kws, options)
+			editor:invalidateDisplay()
+		elseif subCommand == "region" then
+			local buf = editor:getCurrentBuffer()
+			if buf == nil then
+				return
+			end
+			local groupName = args[i]
+			i = i + 1
+			if not groupName then
+				editor:raiseSoftInterrupt{messageTable = table.pack("Not enough arguments: syntax", argStr)}
+				return
+			end
+			local matchGroupName = groupName
+			local options = {}
+			while args[i] do
+				local arg = args[i]
+				i = i + 1
+				local _, optionKVSep = arg:find("^%w+=")
+				local optionKey, optionValue = nil, nil
+				if optionKVSep then
+					optionKey = arg:sub(1, optionKVSep - 1)
+					optionValue = arg:sub(optionKVSep + 1)
+				end
+				if optionKey == "start" or optionKey == "end" or optionKey == "skip" then
+					local argLen = safeencoding.len(optionValue)
+					local begChar = safeencoding.sub(optionValue, 1, 1)
+					local edChar = safeencoding.sub(optionValue, argLen, argLen)
+					if begChar ~= edChar then
+						editor:raiseSoftInterrupt{messageTable = table.pack("Pattern delimiter not found:", optionValue)}
+						return
+					end
+					local searchString = safeencoding.sub(optionValue, 2, argLen - 1)
+					if searchString:sub(1, 2) == "\\V" or searchString:sub(1, 2) == "\\M" then
+						-- nomagic
+						searchString = strptn.escapePtn(searchString:sub(3))
+					end
+					searchString = strptn.unescapeBackslash(searchString)
+					local success, reason = strptn.validatePtn(searchString)
+					if not success then
+						editor:raiseSoftInterrupt{messageTable = table.pack(("Invalid search string (%s): %s"):format(reason, searchString))}
+						return
+					end
+					options[optionKey] = searchString
+					options[optionKey .. "matchgroup"] = matchGroupName
+				elseif optionKey == "matchgroup" then
+					matchGroupName = optionValue
+				elseif optionKey ~= nil then
+					editor:raiseSoftInterrupt{messageTable = table.pack("Invalid argument key:", optionKey)}
+				else
+					editor:raiseSoftInterrupt{messageTable = table.pack("Invalid argument:", arg)}
+				end
+			end
+			if not options.start then
+				editor:raiseSoftInterrupt{messageTable = table.pack("Missing start pattern: syntax", argStr)}
+				return
+			elseif not options["end"] then
+				editor:raiseSoftInterrupt{messageTable = table.pack("Missing end pattern: syntax", argStr)}
+				return
+			end
+			buf.syntaxRegistry:defineRegion(groupName, options)
 			editor:invalidateDisplay()
 		elseif subCommand == "clear" then
 			if i <= #args then

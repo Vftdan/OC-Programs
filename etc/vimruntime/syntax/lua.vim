@@ -13,17 +13,19 @@ syn match luaNumber /%d+/
 syn match luaNumber /%d*%.%d+/
 syn match luaNumber /0x%x+/
 
-syn match luaString /"[^"]*"/
-syn match luaString /'[^']*'/
-syn match luaString /%[%[.-%]%]/
+syn region luaString matchgroup=luaStringSeparator start=/"/ end=/"/ matchgroup=luaStringEscape skip=/\\./
+syn region luaString matchgroup=luaStringSeparator start=/'/ end=/'/ matchgroup=luaStringEscape skip=/\\./
+syn region luaString matchgroup=luaStringSeparator start=/%[%[/ end=/%]%]/
 
 syn match luaComment /%-%-.*/
-syn match luaComment /%-%-%[%[.-%]%]/
+syn region luaComment start=/%-%-%[%[/ end=/%]%]/
 
 hi def link luaIdentifier Normal
 hi def link luaKeyword Statement
 hi def link luaConstant Constant
 hi def link luaString String
+hi def link luaStringSeparator String
+hi def link luaStringEscape Special
 hi def link luaOperator Operator
 hi def link luaDelimiter Delimiter
 hi def link luaNumber Constant

@@ -185,6 +185,93 @@ local KeywordRule = makeClass {
 	end,
 }
 
+local RegionStartRule = makeClass {
+	init = function(self, pattern, groupName, bodyRule)
+		self.pattern = pattern
+		self.groupName = groupName
+		self.bodyRule = bodyRule
+	end,
+	onPatternStart = function(self, enteredStack, availableStack)
+		enter(enteredStack, self)
+		resetAvailable(availableStack)
+	end,
+	onLeave = function(self, enteredStack, availableStack)
+		restoreAvailable(availableStack)
+	end,
+	onPatternEnd = function(self, enteredStack, availableStack)
+		leave(enteredStack, availableStack, self)
+		enter(enteredStack, self.bodyRule)
+		self.bodyRule:onEnter(enteredStack, availableStack)
+	end,
+	acceptsAt = function(self, line, beg, ed)
+		return true
+	end,
+}
+
+local RegionEndRule = makeClass {
+	init = function(self, pattern, groupName, bodyRule)
+		self.pattern = pattern
+		self.groupName = groupName
+		self.bodyRule = bodyRule
+	end,
+	onPatternStart = function(self, enteredStack, availableStack)
+		leave(enteredStack, availableStack, self.bodyRule)
+		enter(enteredStack, self)
+		resetAvailable(availableStack)
+	end,
+	onLeave = function(self, enteredStack, availableStack)
+		restoreAvailable(availableStack)
+	end,
+	onPatternEnd = function(self, enteredStack, availableStack)
+		leave(enteredStack, availableStack, self)
+	end,
+	acceptsAt = function(self, line, beg, ed)
+		return true
+	end,
+}
+
+local RegionSkipRule = makeClass {
+	init = function(self, pattern, groupName, bodyRule)
+		self.pattern = pattern
+		self.groupName = groupName
+		self.bodyRule = bodyRule
+	end,
+	onPatternStart = function(self, enteredStack, availableStack)
+		enter(enteredStack, self)
+		resetAvailable(availableStack)
+	end,
+	onLeave = function(self, enteredStack, availableStack)
+		restoreAvailable(availableStack)
+	end,
+	onPatternEnd = function(self, enteredStack, availableStack)
+		leave(enteredStack, availableStack, self)
+	end,
+	acceptsAt = function(self, line, beg, ed)
+		return true
+	end,
+}
+
+-- Cannot can only be entered, but not available
+local RegionRule = makeClass {
+	init = function(self, opts, groupName)
+		self.startRule = RegionStartRule(opts.start, opts.startmatchgroup or groupName, self)
+		self.endRule = RegionEndRule(opts["end"], opts.endmatchgroup or groupName, self)
+		self.skipRule = nil
+		if opts.skip then
+			self.skipRule = RegionSkipRule(opts.skip, opts.skipmatchgroup or groupName, self)
+		end
+		self.groupName = groupName
+	end,
+	onEnter = function(self, enteredStack, availableStack)
+		local rules = {self.endRule, self.skipRule}
+		-- TODO contained
+		resetAvailable(availableStack, rules)
+	end,
+	onLeave = function(self, enteredStack, availableStack)
+		restoreAvailable(availableStack)
+	end,
+}
+
 local Syntax = makeClass {
 	init = function(self)
 		self._nonce = {}
@@ -213,6 +300,19 @@ local Syntax = makeClass {
 			local pattern = strptn.escapePtn(kw)
 			self._rules[pattern] = KeywordRule(pattern, groupName)
 			self._priorities[pattern] = priority
+		end
+		self:_invalidate()
+	end,
+	defineRegion = function(self, groupName, opts)
+		local priority = self._lastPriority + 3
+		self._lastPriority = priority
+		local bodyRule = RegionRule(opts, groupName)
+		local pattern = bodyRule.startRule.pattern
+		self._rules[pattern] = bodyRule.startRule
+		self._priorities[pattern] = priority - 2
+		self._priorities[bodyRule.endRule] = priority - 1
+		if bodyRule.skipRule then
+			self._priorities[bodyRule.skipRule] = priority
 		end
 		self:_invalidate()
 	end,
@@ -261,7 +361,8 @@ local Syntax = makeClass {
 		end
 		local start = 1
 		local nextRuleBounds = {}
-		for pattern, rule in pairs(availableStack[#availableStack]) do
+		local lastAvailableTop = availableStack[#availableStack]
+		for pattern, rule in pairs(lastAvailableTop) do
 			local m = {findFirstAccepting(line, rule, pattern, start)}
 			if m[1] then
 				nextRuleBounds[pattern] = m
@@ -272,17 +373,19 @@ local Syntax = makeClass {
 			local minPatternIndex = nil
 			local minPattern = nil
 			for pattern, m in pairs(nextRuleBounds) do
-				if m[1] < start then
-					m = {findFirstAccepting(line, availableStack[#availableStack][pattern], pattern, start)}
-					if not m[1] then
-						m = nil
+				if availableStack[#availableStack][pattern] then
+					if m[1] < start then
+						m = {findFirstAccepting(line, availableStack[#availableStack][pattern], pattern, start)}
+						if not m[1] then
+							m = nil
+						end
+						nextRuleBounds[pattern] = m
 					end
-					nextRuleBounds[pattern] = m
-				end
-				if m then
-					if not minPatternIndex or minPatternIndex > m[1] or minPatternIndex == m[1] and self._priorities[minPattern] < self._priorities[pattern] then
-						minPatternIndex = m[1]
-						minPattern = pattern
+					if m then
+						if not minPatternIndex or minPatternIndex > m[1] or minPatternIndex == m[1] and self._priorities[minPattern] < self._priorities[pattern] then
+							minPatternIndex = m[1]
+							minPattern = pattern
+						end
 					end
 				end
 			end
@@ -293,6 +396,17 @@ local Syntax = makeClass {
 			rule:onPatternStart(enteredStack, availableStack)
 			if #availableStack < 1 then
 				availableStack[1] = self._rules
+			end
+			if availableStack[#availableStack] ~= lastAvailableTop then
+				lastAvailableTop = availableStack[#availableStack]
+				for pattern, rule in pairs(lastAvailableTop) do
+					if not nextRuleBounds[pattern] then
+						local m = {findFirstAccepting(line, rule, pattern, start)}
+						if m[1] then
+							nextRuleBounds[pattern] = m
+						end
+					end
+				end
 			end
 			table.insert(thresholds, {index = minPatternIndex, groupNames = collectGroupNames(enteredStack)})
 			local patternEnd = nextRuleBounds[minPattern][2]
@@ -311,6 +425,17 @@ local Syntax = makeClass {
 				endedRule:onPatternEnd(enteredStack, availableStack)
 				if #availableStack < 1 then
 					availableStack[1] = self._rules
+				end
+				if availableStack[#availableStack] ~= lastAvailableTop then
+					lastAvailableTop = availableStack[#availableStack]
+					for pattern, rule in pairs(lastAvailableTop) do
+						if not nextRuleBounds[pattern] then
+							local m = {findFirstAccepting(line, rule, pattern, start)}
+							if m[1] then
+								nextRuleBounds[pattern] = m
+							end
+						end
+					end
 				end
 				table.insert(thresholds, {index = nextEnd + 1, groupNames = collectGroupNames(enteredStack)})
 				nextEnd = peekPatternEnd(patternEnds)
