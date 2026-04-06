@@ -437,6 +437,7 @@ local function unescapeBackslash(haystack)
 		if not i then
 			break
 		end
+		table.insert(builder, haystack:sub(start, i - 1))
 		local ch = haystack:sub(i + 1, i + 1)
 		table.insert(builder, ch)
 		start = i + 2

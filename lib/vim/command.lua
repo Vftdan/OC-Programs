@@ -30,10 +30,10 @@ local function splitArgs(argStr)
 			table.insert(args, argStr)
 			break
 		end
-		nextArg = strptn.unescapeBackslash(safeencoding.sub(argStr, 1, argSepPos - 1))
+		local nextArg = strptn.unescapeBackslash(safeencoding.sub(argStr, 1, argSepPos - 1))
 		table.insert(args, nextArg)
 		argStr = safeencoding.sub(argStr, argSepPos)
-		nonBlankPos = strptn.firstNonSpace(argStr)
+		local nonBlankPos = strptn.firstNonSpace(argStr)
 		if not nonBlankPos then
 			break
 		end
