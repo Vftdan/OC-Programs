@@ -19,6 +19,10 @@ local mapping = {
 	special = {ctermfg=3, guifg=0xFF8000},
 	title = {ctermfg=12, guifg=0x6699FF, reverse=true},  -- Real Vim uses magenta without reversing. This one is from wip.lua instead.
 	operator = "statement",
+	underlined = {underline = true, ctermfg = 10, guifg = 0x80A080},  -- Real vim uses ctermfg=4, guifg=0x80A0FF, use wip.lua again
+	bold = {bold = true, ctermfg = 10, guifg = 0x33CC33},  -- Doesn't exist in real Vim
+	italic = {italic = true, reverse=true, ctermfg = 13, guifg = 0xFF50FF},  -- Doesn't exist in real Vim
+	bolditalic = {bold = true, italic = true, reverse=true, ctermfg = 8, guifg = 0x337C33, ctermbg = 13, guibg = 0xFFA0FF},  -- Doesn't exist in real Vim
 }
 
 return {
