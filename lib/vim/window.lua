@@ -28,7 +28,7 @@ local function toPrintableStyled(line)
 			})
 		end
 		local startCol = m[1] + adjustment
-		local width
+		local width, rep
 		if m.kind == "tab" then
 			width = TABSTOP - ((startCol - 1) % TABSTOP)
 			rep = itertools.repeatString("-", width - 1) .. ">"
@@ -154,8 +154,15 @@ local function printableStyledAddHighlight(orig, lineBegX, lineEdX, styleNames)
 			end
 			local s = safeencoding.sub(entry.string, begX, visualEdX)
 			local styleWithVisual = itertools.collect(ipairs(entry.styleNames))
+			local isNonText = styleWithVisual[#styleWithVisual] == "nontext"
+			if isNonText then
+				styleWithVisual[#styleWithVisual] = nil
+			end
 			for _, styleName in ipairs(styleNames) do
 				styleWithVisual[#styleWithVisual + 1] = styleName
+			end
+			if isNonText then
+				styleWithVisual[#styleWithVisual + 1] = "nontext"
 			end
 			local newEntry = {
 				string = s,
