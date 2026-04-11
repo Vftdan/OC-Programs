@@ -978,7 +978,7 @@ local cmdlineActions = {
 		state.text = safeencoding.sub(state.text, 1, x - 1) .. ch .. safeencoding.sub(state.text, x)
 		state.x = x + safeencoding.len(ch)
 	end,
-	["<C-v>u"] = function(editor)
+	["<C-v>u"] = function(editor, state)
 		local charCode = 0
 		for _ = 1, 4 do
 			local nibbleNum = helpers.pullHexDigit(editor)
