@@ -321,7 +321,6 @@ local commands = {
 				editor:raiseSoftInterrupt{messageTable = table.pack("Not enough arguments: syntax", argStr)}
 				return
 			end
-			local pattern
 			local options = {}
 			while args[i] do
 				local arg = args[i]
@@ -488,6 +487,13 @@ local commands = {
 		execute(editor, argStr)
 		editor:clearSoftInterrupt()
 	end,
+	ascii = function(editor, argStr)
+		if #argStr > 0 then
+			editor:raiseSoftInterrupt{messageTable = table.pack("Trailing characters:", arg)}
+			return
+		end
+		editor:echo(helpers.formatCharsInfo(editor, helpers.getCursorGrapheme(editor)))
+	end,
 }
 
 local function registerMappingCommand(name, tables, isRecursive)
@@ -552,6 +558,7 @@ commands.hi = commands.highlight
 commands.syn = commands.syntax
 commands.au = commands.autocmd
 commands.setf = commands.setfiletype
+commands.as = commands.ascii
 
 local function emptyCommand(editor, rangeTable)
 	resolveRange(editor, rangeTable)

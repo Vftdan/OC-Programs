@@ -77,8 +77,18 @@ local function findAllInvalidCodePoints(s)
 	end
 end
 
+local function getCodePointOrUnitCode(ch)
+	local valid, code = pcall(sysencoding.codePointAt, ch, 1)
+	if valid and type(code) == "number" then
+		return true, code
+	end
+	code = ch:byte(1) or 0
+	return false, code
+end
+
 return {
 	len = len,
 	sub = sub,
 	findAllInvalidCodePoints = findAllInvalidCodePoints,
+	getCodePointOrUnitCode = getCodePointOrUnitCode,
 }

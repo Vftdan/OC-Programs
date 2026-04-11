@@ -181,6 +181,55 @@ local function findWordInLine(editor, toCtx, opts)
 	return m[key]
 end
 
+local function formatCharsInfo(editor, str)
+	str = str or ""
+	local numChars = safeencoding.len(str)
+	local builder = {}
+	for i = 1, numChars do
+		local ch = safeencoding.sub(str, i, i)
+		local isCodePoint, code = safeencoding.getCodePointOrUnitCode(ch)
+		local info
+		if isCodePoint then
+			info = ("<%s>, Hex %04x, Oct %o"):format(ch, code, code)
+		else
+			info = ("Byte <%s>, Hex %02x, Oct %o"):format(ch, code, code)
+		end
+		table.insert(builder, info)
+	end
+	return table.concat(builder, " ")
+end
+
+local getTextObjectEnds
+
+local function getCursorGrapheme(editor)
+	local win = editor:getCurrentWindow()
+	if win == nil then
+		return nil
+	end
+	local buf = win.currentBuffer
+	if buf == nil then
+		return nil
+	end
+	local cursorToCtx = makeMotionContext(editor)
+	if not cursorToCtx then
+		return nil
+	end
+	local contentX, contentY = win:projectToContent(cursorToCtx.x, cursorToCtx.y)
+	local nextX = win:unprojectFromContent(contentX + 1, contentY)
+	if nextX <= cursorToCtx.x then
+		nextX = cursorToCtx.x + 1
+	end
+	local toCtx = makeMotionContext(editor)
+	toCtx.initialX, toCtx.initialY = cursorToCtx.x, cursorToCtx.y
+	toCtx.x, toCtx.y = nextX, cursorToCtx.y
+	toCtx.exclusive = true
+	local txt = buf:getTextBetween(getTextObjectEnds(editor, finalizeMotion(editor, toCtx)))
+	if txt == nil then
+		return nil
+	end
+	return table.concat(txt, "\n")
+end
+
 local function getEffectiveStatusLineFormatString(editor)
 	local fmt = editor.statusLineFormatString
 	if not fmt or #fmt == 0 then
@@ -251,8 +300,6 @@ local function getSelectedRegister(editor)
 	-- TODO registers
 	return editor._unnamedRegister or emptyRegisterValue
 end
-
-local getTextObjectEnds
 
 local function getTextObjectAsRegister(editor, to)
 	local buf = editor:getCurrentBuffer()
@@ -1215,6 +1262,8 @@ return {
 	findSearchStringInLine = findSearchStringInLine,
 	findSurroundingWordInLine = findSurroundingWordInLine,
 	findWordInLine = findWordInLine,
+	formatCharsInfo = formatCharsInfo,
+	getCursorGrapheme = getCursorGrapheme,
 	getEffectiveStatusLineFormatString = getEffectiveStatusLineFormatString,
 	getLineSearchMatches = getLineSearchMatches,
 	getPasteDataAsRegister = getPasteDataAsRegister,

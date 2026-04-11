@@ -734,6 +734,9 @@ local normalActions = {
 		helpers.performMouseMotion(editor, toCtx)
 		helpers.pushModeVisual(editor, toCtx)
 	end,
+	ga = function(editor)
+		editor:echo(helpers.formatCharsInfo(editor, helpers.getCursorGrapheme(editor)))
+	end,
 }
 
 local insertActions = {
@@ -881,6 +884,10 @@ local visualActions = {
 		-- Which would break if we ever support `<c-o>v:` starting in the insert mode
 		helpers.pushModeCommandLine(editor, {text = "'<,'>"})
 		return true, toCtx
+	end,
+	ga = function(editor, toCtx)
+		editor:echo(helpers.formatCharsInfo(editor, helpers.getCursorGrapheme(editor)))
+		return false, toCtx
 	end,
 }
 
