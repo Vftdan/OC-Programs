@@ -137,7 +137,7 @@ local function nameToSpecList(name)
 		error(("Unknown item %q"):format(name))
 	end
 	for _, stack in ipairs(stacks) do
-		table.insert(specList, {name = stack.name, damage = stack.damage, maxSize = stack.maxSize, label = label})
+		table.insert(specList, {name = stack.name, damage = stack.damage, maxSize = stack.maxSize, label = stack.label})
 	end
 	return specList, stacks
 end
