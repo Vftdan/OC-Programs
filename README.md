@@ -17,6 +17,7 @@ server = "SERVER_HOSTNAME"
  - `recipesched-craft-item <ITEM_NAME> <[AMOUNT=1]>` try to schedule a craft of at lest AMOUNT items specified in the server's `items.cfg`
  - `recipesched-jobs` list all scheduled jobs with brief information
  - `recipesched-jobs <JOB_ID>` show an extended information for a specific job
+ - `recipesched-mtmenu` a TUI client for scheduling crafts and viewing jobs
  - `recipesched-reload` ask the server to re-read its `items.cfg` and `recipes.cfg`
 
 #### API

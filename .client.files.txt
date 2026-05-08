@@ -5,4 +5,5 @@ usr/lib/shell-completion/completions/recipesched-jobs.lua
 usr/lib/shell-completion/completions/recipesched-craft-item.lua
 usr/bin/recipesched-jobs.lua
 usr/bin/recipesched-craft-item.lua
+usr/bin/recipesched-mtmenu.lua
 usr/bin/recipesched-reload.lua
