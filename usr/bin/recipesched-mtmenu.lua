@@ -218,6 +218,26 @@ local function showConfirm(text, title)
 	end
 end
 
+local function promptNumber(text, title)
+	local s = mtmenu.popupEntry(text, title or "Number prompt")
+	if not s or #s == 0 then
+		return nil, true
+	end
+	return tonumber(s), false
+end
+
+local function promptInteger(text, title)
+	local n, empty = promptNumber(text, title)
+	if not n then
+		return n, empty
+	end
+	-- In Lua5.3 math.type can be used instead
+	if math.floor(n) ~= n or n + 1 == n then
+		return nil, false
+	end
+	return n, false
+end
+
 local function showKeys(kvs)
 	local leftWidth = 0
 	for _, kv in ipairs(kvs) do
@@ -313,8 +333,14 @@ local function showItemInfo(itemName)
 	showAlert(table.concat(lines, "\n"), "Item information")
 end
 
+local function orderPlan(plan)
+	local jobId, queuePos = executor.registerJobFromPlan(plan)
+	jobListCache = nil
+	showAlert(("Created job %s, position in queue #%d"):format(jobId, queuePos))
+end
+
 local function craftItem(itemName)
-	local amount = tonumber(mtmenu.popupEntry("Amount of items:", "Crafting"))
+	local amount = promptInteger("Amount of items:", "Crafting")
 	if not amount then
 		showAlert("Cancelled")
 		return
@@ -326,9 +352,21 @@ local function craftItem(itemName)
 		end
 		return
 	end
-	local jobId, queuePos = executor.registerJobFromPlan(plan)
-	jobListCache = nil
-	showAlert(("Created job %s, position in queue #%d"):format(jobId, queuePos))
+	orderPlan(plan)
+end
+
+local function planItem(itemName)
+	local amount = promptInteger("Amount of items:", "Plan preview")
+	if not amount then
+		showAlert("Cancelled")
+		return
+	end
+	local plan = planner.planForItem(itemName, amount)
+	if not plan.success then
+		scenes.failedPlan(plan)
+		return
+	end
+	scenes.previewPlan(plan)
 end
 
 colums.jobs = {
@@ -437,11 +475,16 @@ function scenes.items()
 			showKeys{
 				{"Enter", "Request item crafting"},
 				{"i", "Show item information"},
+				{"p", "Preview item plan"},
 				{"q", "Back"},
 			}
 		elseif char == "i" then
 			if entry then
 				alertPcall(showItemInfo, entry.key)
+			end
+		elseif char == "p" then
+			if entry then
+				alertPcall(planItem, entry.key)
 			end
 		elseif char == "q" then
 			running = false
@@ -477,6 +520,85 @@ function scenes.failedPlan(plan)
 		elseif char == "i" then
 			if entry then
 				alertPcall(showItemInfo, entry.item)
+			end
+		elseif char == "q" then
+			running = false
+		end
+	end
+end
+
+colums.previewPlan = {
+	{name = "#", key = "index", width = 2},
+	{name = "Recipe", key = "recipe", width = 80, minWidth = 6},
+	{name = "Repeat count", key = "amount", width = 12},
+}
+
+function formatters.previewPlan(entry)
+	return {index = entry.index, recipe = entry.value.recipe, amount = entry.value.amount}
+end
+
+function scenes.previewPlan(plan)
+	local running = true
+	local cursor, char, key, state
+	while running do
+		local entries = {}
+		for i, v in ipairs(plan.recipeQueue) do
+			entries[i] = {index = i, value = v}
+		end
+		cursor, char, key, state = mtmenu.menu(formatEntries(entries, colums.previewPlan, formatters.previewPlan, ("Plan %q"):format(plan.name), "[H]elp"), state)
+		local entry = nil
+		if cursor and cursor > 0 and cursor <= #entries then
+			entry = entries[cursor]
+		end
+		if key == 28 then
+			if entry then
+				local amount = promptInteger(("For %q\nInstead of %d"):format(entry.value.recipe, entry.value.amount), "Change recipe repeat count")
+				if amount and amount > 0 then
+					entry.value.amount = amount
+				end
+			end
+		elseif key == 211 or key == 14 then
+			if entry and showConfirm("Delete the recipe from the plan?") then
+				table.remove(plan.recipeQueue, entry.index)
+			end
+		elseif key == 203 then
+			if entry and entry.value.amount > 1 then
+				entry.value.amount = entry.value.amount - 1
+			end
+		elseif key == 205 then
+			if entry then
+				entry.value.amount = entry.value.amount + 1
+			end
+		elseif char == "h" then
+			showKeys{
+				{"Enter", "Change recipe repeat count"},
+				{"Bs/Del", "Delete recipe from the plan"},
+				{"Left/Right", "Decrease/increase recipe repeat count"},
+				{"m", "Move the recipe"},
+				{"r", "Rename the plan/job"},
+				{"o", "Order job creation"},
+				{"q", "Back"},
+			}
+		elseif char == "m" then
+			if entry then
+				local newIndex = promptInteger(("Recipe %q\nFrom %d"):format(entry.value.recipe, entry.index), "Move recipe queue position")
+				if newIndex then
+					if newIndex < 0 then
+						newIndex = newIndex + 1 + #entries
+					end
+					newIndex = math.min(#entries, math.max(1, newIndex))
+					local value = table.remove(plan.recipeQueue, entry.index)
+					table.insert(plan.recipeQueue, newIndex, value)
+				end
+			end
+		elseif char == "r" then
+			local name = mtmenu.popupEntry(("Old name: %q\nNew name:"):format(plan.name), "Plan renaming")
+			if name and #name > 0 then
+				plan.name = name
+			end
+		elseif char == "o" then
+			if entry then
+				running = not alertPcall(orderPlan, plan)
 			end
 		elseif char == "q" then
 			running = false
