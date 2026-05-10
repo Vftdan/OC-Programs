@@ -119,7 +119,7 @@ local function executorEntry(ctx)
 					time = os.time() + DELETION_DELAY,
 				})
 			else
-				table.insert(jobQueue, 1, id)
+				table.insert(jobQueue, 1, nextJobId)
 			end
 		end
 	end
