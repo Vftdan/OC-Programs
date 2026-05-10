@@ -3,8 +3,11 @@ local recipeCallbacks = require "recipesched.recipe_callbacks"
 local drivers = require "recipesched.drivers"
 local craftersvc = require "recipesched.driver.craftersvc"
 local os = require "os"
+local thread = require "thread"
+local event = require "event"
 
 local DELETION_DELAY = 72 * 60 * 20
+local TERMINATION_TIMEOUT = 72 * 60 * 2
 
 local function makeBlockingCallback(ctx, recipeName, amount)
 	local desc = recipes.registry[recipeName]
@@ -70,6 +73,7 @@ local function registerJobFromPlan(plan)
 end
 
 local function executorEntry(ctx)
+	ctx.thread = thread.current()
 	while ctx.running do
 		local time = os.time()
 		while ctx.running do
@@ -98,9 +102,11 @@ local function executorEntry(ctx)
 					break
 				end
 				job.active = true
+				job.executor = ctx
 				local stepNum = job.lastStep + 1
 				local stepCb = job.steps[stepNum].callback
 				local ok, reason = pcall(stepCb)
+				job.executor = nil
 				if not ok then
 					job.reason = reason
 					job.success = false
@@ -144,7 +150,54 @@ local function cleanupKilled(ctx)
 			end
 		end
 		table.insert(jobQueue, 1, ctx.heldJob)
-		ctx.heldJob = nul
+		ctx.heldJob = nil
+	end
+	local onKill = ctx.onKill
+	if onKill then
+		onKill(ctx)
+	end
+end
+
+local killQueue = {}
+local killNextTimer = nil
+
+local function killExecutorThread(ctx)
+	local thr = ctx.thread
+	if thr then
+		thr:kill()
+	end
+	cleanupKilled(ctx)
+end
+
+local processKillQueue
+local function updateKillNextTimer()
+	if killNextTimer == nil then
+		local ctx = killQueue[1]
+		if not ctx then
+			return
+		end
+		local deadline = killQueue[1].stopDeadline
+		local remainingSec = (deadline - os.time()) / 72
+		killNextTimer = event.timer(math.max(remainingSec, 0), processKillQueue)
+	end
+end
+
+function processKillQueue()
+	local ctx = table.remove(killQueue, 1)
+	updateKillNextTimer()
+	if ctx then
+		killExecutorThread(ctx)
+	end
+end
+
+local function stopExecutor(ctx, now)
+	ctx.running = false
+	if now then
+		killExecutorThread(ctx)
+	else
+		ctx.stopDeadline = os.time() + TERMINATION_TIMEOUT
+		table.insert(killQueue, ctx)
+		updateKillNextTimer()
 	end
 end
 
@@ -185,12 +238,34 @@ local function getJobList()
 	return keys
 end
 
+local function killJob(id)
+	local job = jobRegistry[id]
+	if not job then
+		return false
+	end
+	local ctx = job.executor
+	if ctx and job.active then
+		stopExecutor(ctx)
+	end
+	job.reason = "killed"
+	job.success = false
+	job.active = false
+	job.finished = true
+	table.insert(deletionQueue, {
+		id = id,
+		time = os.time() + DELETION_DELAY,
+	})
+	return true
+end
+
 return {
 	registerJobFromPlan = registerJobFromPlan,
 	jobRegistry = jobRegistry,
 	executorEntry = executorEntry,
 	makeExecutorContext = makeExecutorContext,
 	cleanupKilled = cleanupKilled,
+	stopExecutor = stopExecutor,
 	getJobInfo = getJobInfo,
 	getJobList = getJobList,
+	killJob = killJob,
 }

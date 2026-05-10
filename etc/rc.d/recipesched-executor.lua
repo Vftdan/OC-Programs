@@ -2,16 +2,23 @@ local executor = require "recipesched.executor"
 local thread = require "thread"
 
 local ctx, thr
+local shouldRun = false
+
+local onExit
 
 function start()
+	shouldRun = true
 	if not ctx then
 		ctx = executor.makeExecutorContext()
+		ctx.onKill = onExit
 	else
 		ctx.running = true
 	end
 	if not thr or thr:status() == "dead" then
+		local oldCtx = ctx
 		thr = thread.create(function()
-			executor.executorEntry(ctx)
+			executor.executorEntry(oldCtx)
+			onExit(oldCtx)
 		end)
 		thr:detach()
 	elseif thr:status() == "suspended" then
@@ -19,25 +26,29 @@ function start()
 	end
 end
 
-function stop()
-	if ctx then
-		ctx.running = false
+function onExit(oldCtx)
+	if oldCtx ~= ctx then
+		return
+	end
+	ctx = nil
+	thr = nil
+	if shouldRun then
+		start()
 	end
 end
 
 function stop()
+	shouldRun = false
 	if ctx then
-		ctx.running = false
+		executor.stopExecutor(ctx)
 	end
 end
 
 function kill()
-	if not ctx then
-		return
+	shouldRun = false
+	if ctx then
+		executor.stopExecutor(ctx, true)
 	end
-	ctx.running = false
-	thr:kill()
-	executor.cleanupKilled(ctx)
 end
 
 function status()

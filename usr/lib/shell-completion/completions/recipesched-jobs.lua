@@ -11,6 +11,8 @@ shell.registerCompletion("recipesched-jobs", {
 	populate = function(result, argv)
 		if #argv == 2 then
 			util.populateMatching(result, argv[#argv], getJobIds())
+		elseif #argv == 3 then
+			util.populateMatching(result, argv[#argv], {"kill"})
 		end
 	end
 })

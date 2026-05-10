@@ -30,6 +30,7 @@ addAllToApi("executor", {
 	"registerJobFromPlan",
 	"getJobInfo",
 	"getJobList",
+	"killJob",
 })
 
 return apinames

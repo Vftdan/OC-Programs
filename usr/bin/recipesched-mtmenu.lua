@@ -400,9 +400,16 @@ function scenes.jobs()
 		elseif char == "h" then
 			showKeys{
 				{"Enter", "Open extended job info"},
+				{"k", "Kill the job"},
 				{"c", "Open item craft menu"},
 				{"q", "Quit"},
 			}
+		elseif char == "k" then
+			if entry and showConfirm(("Kill the job %s?"):format(entry.id)) then
+				local id = entry.id
+				executor.killJob(id)
+				jobCache[id] = nil
+			end
 		elseif char == "c" then
 			alertPcall(scenes.items)
 		elseif char == "q" then

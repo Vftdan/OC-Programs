@@ -45,8 +45,11 @@ local function printJobInfo(id)
 	end
 end
 
-local id = ...
+local id, subcommand = ...
 if id then
+	if subcommand == "kill" then
+		executor.killJob(id)
+	end
 	printJobInfo(id)
 else
 	printJobList()
