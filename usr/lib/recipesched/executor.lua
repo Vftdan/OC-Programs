@@ -243,6 +243,11 @@ local function killJob(id)
 	if not job then
 		return false
 	end
+	for i = #jobQueue, 1, -1 do
+		if jobQueue[i] == id then
+			table.remove(jobQueue, i)
+		end
+	end
 	local ctx = job.executor
 	if ctx and job.active then
 		stopExecutor(ctx)
