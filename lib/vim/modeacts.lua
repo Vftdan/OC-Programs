@@ -55,6 +55,7 @@ local simpleOperators = {
 			emptyValue = helpers.registerValueFromText(editor, txt, regValue)
 		end
 		helpers.setTextObjectAsRegister(editor, to, emptyValue)
+		helpers.setRepeatCount(editor, 0)
 		helpers.pushModeInsert(editor)
 	end,
 }
