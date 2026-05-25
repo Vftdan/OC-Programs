@@ -200,6 +200,11 @@ end
 
 -- move change
 local function insertMode(editor, change)
+	local win = editor:getCurrentWindow()
+	if win == nil then
+		return
+	end
+	win:setVisualSelection(nil)  -- when entering from v_c, should it be fixed somewhere else instead?
 	local buf = editor:getCurrentBuffer()
 	if buf == nil then
 		return nil
