@@ -537,11 +537,27 @@ end
 colums.previewPlan = {
 	{name = "#", key = "index", width = 2},
 	{name = "Recipe", key = "recipe", width = 80, minWidth = 6},
+	{name = "Node", key = "node", width = 20, minWidth = 4},
 	{name = "Repeat count", key = "amount", width = 12},
 }
 
+local function getStepNameAmountNode(value)
+	if value.recipe then
+		return value.recipe, value.amount, value.node or "~"
+	end
+	if value.deliver then
+		return ("%s -> %s"):format(value.deliver, value.to), value.amount, value.from
+	end
+	local amount = value.amount
+	if type(amount) ~= "number" then
+		amount = -1
+	end
+	return "<UNKNOWN>", amount, "~"
+end
+
 function formatters.previewPlan(entry)
-	return {index = entry.index, recipe = entry.value.recipe, amount = entry.value.amount}
+	local recipe, amount, node = getStepNameAmountNode(entry.value)
+	return {index = entry.index, recipe = recipe, amount = amount, node = node}
 end
 
 function scenes.previewPlan(plan)
@@ -558,8 +574,8 @@ function scenes.previewPlan(plan)
 			entry = entries[cursor]
 		end
 		if key == 28 then
-			if entry then
-				local amount = promptInteger(("For %q\nInstead of %d"):format(entry.value.recipe, entry.value.amount), "Change recipe repeat count")
+			if entry and (entry.value.recipe or entry.value.deliver) then
+				local amount = promptInteger(("For %q\nInstead of %d"):format(getStepNameAmountNode(entry.value)), "Change recipe repeat count")
 				if amount and amount > 0 then
 					entry.value.amount = amount
 				end
@@ -569,11 +585,11 @@ function scenes.previewPlan(plan)
 				table.remove(plan.recipeQueue, entry.index)
 			end
 		elseif key == 203 then
-			if entry and entry.value.amount > 1 then
+			if entry and (entry.value.recipe or entry.value.deliver) and entry.value.amount > 1 then
 				entry.value.amount = entry.value.amount - 1
 			end
 		elseif key == 205 then
-			if entry then
+			if entry and (entry.value.recipe or entry.value.deliver) then
 				entry.value.amount = entry.value.amount + 1
 			end
 		elseif char == "h" then
@@ -588,7 +604,8 @@ function scenes.previewPlan(plan)
 			}
 		elseif char == "m" then
 			if entry then
-				local newIndex = promptInteger(("Recipe %q\nFrom %d"):format(entry.value.recipe, entry.index), "Move recipe queue position")
+				local name = getStepNameAmountNode(entry.value)
+				local newIndex = promptInteger(("Recipe %q\nFrom %d"):format(name, entry.index), "Move recipe queue position")
 				if newIndex then
 					if newIndex < 0 then
 						newIndex = newIndex + 1 + #entries
