@@ -386,6 +386,7 @@ local function finalizePlan(ctx)
 			end
 		end
 	end
+	ctx.stockDrivers = nil
 	local plan = {
 		missingItems = missingItems,
 		recipeQueue = recipeQueue,
