@@ -413,6 +413,7 @@ local function planForItem(itemName, amount, dstNode)
 	end
 	local ctx = makePlanContext(("Item %q * %d"):format(itemName, amount))
 	wantItemAt(ctx, itemName, amount, dstNode)
+	updateIngoingStockListFor(ctx, dstNode)
 	updatePresentCache(ctx)
 	wantItemAt(ctx, itemName, getPresentAmount(ctx, itemName, dstNode), dstNode)
 	while stepPlan(ctx) do
