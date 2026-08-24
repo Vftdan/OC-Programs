@@ -1,3 +1,102 @@
+local hasLz16, lz16 = pcall(require, "liblz16")
+local serial = require "serialization"
+local util = require "recipesched.util"
+local os = require "os"
+local buffer = require "buffer"
+local minitel = require "minitel"
+
+--[[
+-- Criteria is a table with string keys and primitive (i. e. non-reference typed) values
+-- compress: boolean -- wrap response in an lz16 stream
+-- fuzzy: boolean -- strings are checked against case-insensitive inclusion instead of case-sensitive equality
+-- (anything else): number | (string & Preim(tonumber, nil)) -- item specifier fields
+--]]
+local function serializeMatchHeader(criteria)
+	local builder = {}
+	for k, v in pairs(criteria) do
+		table.insert(builder, ("%s=%s"):format(k, v))
+	end
+	return table.concat(builder, "\t") .. "\n"
+end
+
+local function itemSpecCriteria(spec)
+	local criteria = {fuzzy = false, compress = hasLz16}
+	for k, v in pairs(spec) do
+		local accept = true
+		accept = accept and criteria[k] == nil
+		if accept then
+			local t = type(v)
+			if t == "number" then
+				-- ok
+			elseif t == "string" then
+				accept = not tonumber(v)
+			else
+				accept = false
+			end
+		end
+		if accept then
+			criteria[k] = v
+		end
+	end
+	return criteria
+end
+
+local function noop()
+end
+
+local function hostMatchAll(host, port, spec)
+	local criteria = itemSpecCriteria(spec)
+	if host == "localhost" then
+		local inv = require "inv"
+		local fuzzy = criteria.fuzzy
+		criteria.fuzzy = nil
+		criteria.compress = nil
+		local stacks = inv.matchAll(criteria, fuzzy)
+		return stacks
+	end
+	local conn, reason = minitel.open(host, port)
+	if not conn then
+		error(("Could not connect to %s:%d: %s"):format(host, port, tostring(reason)))
+	end
+	conn:write(serializeMatchHeader(criteria))
+	conn.mode = {r = true}
+	local function readChunk()
+		if conn.state ~= "open" then
+			return nil
+		end
+		os.sleep(0.05)
+		return conn:read("*a")
+	end
+	local reader = buffer.new("rb", {read = readChunk, close = noop})
+	if criteria.compress then
+		reader = lz16.buffer(reader)
+	end
+	local stacks = {}
+	for line in reader:lines() do
+		table.insert(stacks, serial.unserialize(line))
+	end
+	return stacks
+end
+
+local function hostCountPresentItems(host, port, names)
+	local items = require "recipesched.items"
+	-- TODO `forStacks`?
+	local result = {}
+	for _, name in ipairs(names) do
+		local amount = 0
+		local specList = items.nameToSpecList(name)
+		-- FIXME double counting for intersecting specs
+		for _, spec in ipairs(specList) do
+			local stacks = hostMatchAll(host, port, spec)
+			for _, stack in ipairs(stacks) do
+				amount = amount + stack.size
+			end
+		end
+		result[name] = {amount = amount}
+	end
+	return result
+end
+
 local function apiDeliver(api, destination, order)
 	local items = require "recipesched.items"
 	local recipes = require "recipesched.recipes"
@@ -26,7 +125,7 @@ end
 
 return require("recipesched.basehostdriver").create({
 	features = {delivery = true},
-	fallbackFeatures = {stockCount = false --[[TODO]]},
+	fallbackFeatures = {stockCount = true},
 }, function(hostName)
 	local rpc = require "rpc"
 
@@ -45,7 +144,12 @@ return require("recipesched.basehostdriver").create({
 		return apiDeliver(api, destination, order)
 	end
 
+	local function countPresentItems(names)
+		return hostCountPresentItems(hostName, streamPort, names)
+	end
+
 	return {
 		deliver = deliver,
+		countPresentItems = countPresentItems,
 	}
 end)
