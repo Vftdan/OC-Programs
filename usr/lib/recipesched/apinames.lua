@@ -22,6 +22,15 @@ addAllToApi("recipes", {
 	"getRegistryKeys",
 })
 
+addAllToApi("infra", {
+	"reload",
+	"getDefaultStorageName",
+	"getNodeRegistryElement",
+	"getNodeRegistryKeys",
+	"getDriverNames",
+	"getDriverStorages",
+})
+
 addAllToApi("planner", {
 	"planForItem",
 })

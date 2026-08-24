@@ -1,7 +1,9 @@
 local recipes = require "recipesched.recipes"
+local infra = require "recipesched.infra"
+local nodechoice = require "recipesched.nodechoice"
+local stockcheck = require "recipesched.stockcheck"
 local recipeCallbacks = require "recipesched.recipe_callbacks"
 local drivers = require "recipesched.drivers"
-local craftersvc = require "recipesched.driver.craftersvc"
 local os = require "os"
 local thread = require "thread"
 local event = require "event"
@@ -9,36 +11,104 @@ local event = require "event"
 local DELETION_DELAY = 72 * 60 * 20
 local TERMINATION_TIMEOUT = 72 * 60 * 2
 
-local function makeBlockingCallback(ctx, recipeName, amount)
+local function makeBlockingCallbackRecipe(ctx, recipeName, amount, defaultNodeName)
 	local desc = recipes.registry[recipeName]
 	local callback = recipeCallbacks[desc.callbackName]
-	if not ctx.driver then
-		ctx.driver = {}
+	if not ctx.driverFeature then
+		ctx.driverFeature = {}
 	end
-	for _, name in ipairs(desc.drivers) do
-		ctx.driver[name] = drivers.load(name)
+	local choice = nodechoice.chooseNodesForRecipe(recipeName, defaultNodeName)
+	ctx.node = choice.node
+	for feature, srvDescr in pairs(choice.driverFeatureServers) do
+		local hostName = srvDescr.host
+		local driverName = srvDescr.driver
+		local driver = drivers.loadForHost(driverName, hostName)
+		ctx.driverFeature[feature] = driver
 	end
 	if desc.blocking then
 		return function()
 			callback(ctx, desc.args, amount)
 		end
 	else
+		local countGetter = nil
 		local firstResult = desc.results[1]
-		if not firstResult then
+		if firstResult then
+			local itemName = recipes.getRecipeItemName(firstResult.item)
+			local outputEntry = choice.itemOutputs[itemName]
+			if not outputEntry.bad then
+				local counter = stockcheck.combinedNodeCounter(outputEntry.nodes)
+				local itemList = {itemName}
+				countGetter = function()
+					return counter(itemList)[itemName].amount
+				end
+			end
+		end
+		if not countGetter then
 			return function()
 				callback(ctx, desc.args, amount)
 			end
 		end
-		local itemName = recipes.getRecipeItemName(firstResult.item)
 		return function()
-			local response = craftersvc.countPresentItems({itemName})
-			local desiredAmount = response[itemName].amount + firstResult.amount * amount
+			local desiredAmount = countGetter() + firstResult.amount * amount
 			callback(ctx, desc.args, amount)
-			while craftersvc.countPresentItems({itemName})[itemName].amount < desiredAmount do
+			while countGetter() < desiredAmount do
 				-- TODO add timeout
 				os.sleep(5)
 			end
 		end
+	end
+end
+
+local function makeBlockingCallbackDelivery(itemName, srcName, dstName, amount)
+	local dstNode = infra.nodeRegistry[dstName]
+	if not dstNode then
+		error(("Invalid delivery destination: %q"):format(dstName))
+	end
+	local srvDescr = dstNode.inputServer
+	if not srvDescr then
+		error(("Delivery to a node %q without an input server"):format(dstName))
+	end
+	if srvDescr.storage ~= srcName then
+		error(("Delivery from a node %q not mathching the input storage %q of %q"):format(srcName, srvDescr.storage, dstName))
+	end
+	local hostName = srvDescr.host
+	local driverName = srvDescr.driver
+	if not drivers.hasAllFeatures(driverName, {"delivery"}) then
+		error(("Input server driver %q of node %q does not implement delivery"):format(driverName, dstName))
+	end
+	local driver = drivers.loadForHost(driverName, hostName)
+	local itemRef = recipes.itemGetter[itemName]
+	local srcStockDriver = stockcheck.getNodeDriver(srcName)
+	local outputNodes = nodechoice.followPossibleItemOutputs(dstName, itemName, amount)
+	local dstCounter = outputNodes and stockcheck.combinedNodeCounter(outputNodes)
+	return function()
+		local itemList = {itemName}
+		local order = {{ref = itemRef, amount = amount}}
+		if srcStockDriver then
+			while srcStockDriver.countPresentItems(itemList)[itemName].amount < amount do
+				os.sleep(5)
+			end
+		end
+		local desiredAmount
+		if dstCounter then
+			desiredAmount = dstCounter(itemList)[itemName].amount + amount
+		end
+		driver.deliver(dstNode.localName, order)
+		if dstCounter then
+			while dstCounter(itemList)[itemName].amount < desiredAmount do
+				os.sleep(5)
+			end
+		end
+	end
+end
+
+local function makeBlockingCallback(ctx, entry)
+	if entry.recipe then
+		return makeBlockingCallbackRecipe(ctx, entry.recipe, entry.amount, entry.node)
+	elseif entry.deliver then
+		return makeBlockingCallbackDelivery(entry.deliver, entry.from, entry.to, entry.amount)
+	else
+		error("Unknown plan entry type")
 	end
 end
 
@@ -54,6 +124,16 @@ local jobRegistry = {}
 local jobQueue = {}
 local deletionQueue = {}
 
+local function stringifyPlanEntry(entry)
+	if entry.recipe then
+		return ("%q * %d"):format(entry.recipe, entry.amount)
+	elseif entry.deliver then
+		return ("%q * %d -> %q"):format(entry.deliver, entry.amount, entry.to)
+	else
+		return tostring(entry)
+	end
+end
+
 local function registerJobFromPlan(plan)
 	local id
 	repeat
@@ -64,7 +144,7 @@ local function registerJobFromPlan(plan)
 	for _, entry in ipairs(plan.recipeQueue) do
 		table.insert(job.steps, {
 			name = ("%q * %d"):format(entry.recipe, entry.amount),
-			callback = makeBlockingCallback({}, entry.recipe, entry.amount),
+			callback = makeBlockingCallback({}, entry),
 		})
 	end
 	job.created = true

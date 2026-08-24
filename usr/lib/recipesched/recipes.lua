@@ -92,9 +92,10 @@ local function deliveryBaseType(opts)
 		error("Recipe priority is not a number")
 	end
 	local descriptor = {
-		drivers = {"delivery"},
+		driverFeatures = {"delivery"},
+		nodeName = destination,
 		blocking = false,
-		args = {destination = destination, cart = cartCopy},
+		args = {cart = cartCopy},
 		results = resultsCopy,
 		dependencies = dependencies,
 		priority = priority,
@@ -166,7 +167,7 @@ local recipeTypes = {
 			error("Recipe priority is not a number")
 		end
 		local descriptor = {
-			drivers = {"craftersvc"},
+			driverFeatures = {"craft"},
 			blocking = true,
 			args = {grid = gridCopy},
 			results = resultsCopy,
@@ -177,20 +178,12 @@ local recipeTypes = {
 		}
 		return descriptor
 	end,
-	drone_deliver = function(opts)
+	deliver = function(opts)
 		if type(opts) ~= "table" then
-			error("Non-table `drone_deliver` options")
+			error("Non-table `deliver` options")
 		end
 		local descriptor = deliveryBaseType(opts)
-		descriptor.callbackName = "ddrone_deliver"
-		return descriptor
-	end,
-	wired_deliver = function(opts)
-		if type(opts) ~= "table" then
-			error("Non-table `wired_deliver` options")
-		end
-		local descriptor = deliveryBaseType(opts)
-		descriptor.callbackName = "wired_deliver"
+		descriptor.callbackName = "deliver"
 		return descriptor
 	end,
 	noop = function(opts)  -- E. g. for superset items or identified through compacting drawers
@@ -256,7 +249,7 @@ local recipeTypes = {
 			error("Recipe priority is not a number")
 		end
 		local descriptor = {
-			drivers = {},
+			driverFeatures = {},
 			blocking = true,
 			args = {},
 			results = resultsCopy,
@@ -268,6 +261,9 @@ local recipeTypes = {
 		return descriptor
 	end,
 }
+-- compat
+recipeTypes.drone_deliver = recipeTypes.deliver
+recipeTypes.wired_deliver = recipeTypes.deliver
 
 local function wrapRecipeType(name, recipeRefs, f)
 	local function recipeTypeWrapper(...)
@@ -380,6 +376,7 @@ return {
 	recipesForResult = recipesForResult,
 	recipeResultAmount = recipeResultAmount,
 	EMPTY_SLOT = EMPTY_SLOT,
+	itemGetter = itemGetter,
 	getRegistryElement = getRegistryElement,
 	getRegistryKeys = getRegistryKeys,
 }

@@ -15,6 +15,13 @@ local function create(getter, opts)
 		if opts.frozen then
 			error("Trying to modify a frozen lazy table")
 		end
+		local beforeSet = opts.beforeSet
+		if beforeSet then
+			k, v = beforeSet(k, v)
+			if k == nil then
+				return
+			end
+		end
 		storage[k] = v
 	end
 	function mt:__len()
@@ -37,9 +44,23 @@ local function create(getter, opts)
 	if opts.weak then
 		mt.__mode = "v"
 	end
+	local call = opts.call
+	if call then
+		function mt:__call(...)
+			return call(...)
+		end
+	end
 	return lazy
+end
+
+local function noop()
+end
+
+local function symbol(name)
+	return create(noop, {frozen = true, toString = function() return name end})
 end
 
 return {
 	create = create,
+	symbol = symbol,
 }

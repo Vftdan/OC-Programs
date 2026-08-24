@@ -1,20 +1,13 @@
 return {
 	craft = function(ctx, args, amount)
-		ctx.driver.craftersvc.craft(args.grid, amount)
+		ctx.driverFeature.craft.craft(args.grid, amount)
 	end,
-	ddrone_deliver = function(ctx, args, amount)
+	deliver = function(ctx, args, amount)
 		local order = {}
 		for _, entry in ipairs(args.cart) do
 			table.insert(order, {ref = entry.item, amount = amount * entry.amount})
 		end
-		ctx.driver.delivery.deliverDrone(args.destination, order)
-	end,
-	wired_deliver = function(ctx, args, amount)
-		local order = {}
-		for _, entry in ipairs(args.cart) do
-			table.insert(order, {ref = entry.item, amount = amount * entry.amount})
-		end
-		ctx.driver.delivery.deliverWired(args.destination, order)
+		ctx.driverFeature.delivery.deliver(ctx.node.localName, order)
 	end,
 	noop = function(ctx, args, amount)
 	end,
