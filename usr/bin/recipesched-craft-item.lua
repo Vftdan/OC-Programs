@@ -3,14 +3,14 @@ local api = client.getApi()
 local planner = api.planner
 local executor = api.executor
 
-local function main(itemName, amount)
+local function main(itemName, amount, dstNode)
 	if not itemName then
 		error("No item name provided")
 	end
 	if amount then
 		amount = tonumber(amount)
 	end
-	local plan = planner.planForItem(itemName, amount)
+	local plan = planner.planForItem(itemName, amount, dstNode)
 	if not plan.success then
 		print(plan.reason)
 		for _, entry in ipairs(plan.missingItems) do
