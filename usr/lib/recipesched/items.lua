@@ -99,11 +99,11 @@ local function reload()
 	end
 	local newRegistry = {}
 	for k, v in pairs(loaded.globals) do
-		local ok, v = processItem(v)
+		local ok, newV = processItem(v)
 		if not ok then
 			error("Config entry " .. tostring(k) .. newV)
 		end
-		newRegistry[k] = v
+		newRegistry[k] = newV
 	end
 	for k in pairs(registry) do
 		registry[k] = nil
