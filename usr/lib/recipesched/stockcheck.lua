@@ -66,6 +66,7 @@ local function combinedDriverCounter(driverList)
 			end
 			result[name] = {amount = amount}
 		end
+		return result
 	end
 end
 
