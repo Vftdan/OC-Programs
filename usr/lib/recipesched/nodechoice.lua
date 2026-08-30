@@ -24,6 +24,7 @@ local function checkStateVersion()
 end
 
 local function followPossibleItemOutputs(startNodeName, itemName, amount)
+	local stableSet = {}
 	local specList = items.nameToSpecList(itemName)
 	for _, spec in ipairs(specList) do
 		spec.size = amount
