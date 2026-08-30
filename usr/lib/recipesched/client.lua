@@ -4,8 +4,10 @@ local rpc = require "rpc"
 
 local RPC_PREFIX = "recipesched_"
 
-local function getRawApi()
-	local cfg = configloader.loadNamed("client", {mustExist = true}).globals
+local function getRawApi(cfg)
+	if not cfg then
+		cfg = configloader.loadNamed("client", {mustExist = true}).globals
+	end
 	if cfg.useLocal then
 		return require "recipesched.api"
 	end
@@ -22,8 +24,8 @@ local function getRawApi()
 	error("Incomplete recipesched client config: `server` or `useLocal` must be assigned")
 end
 
-local function getApi()
-	local rawApi = getRawApi()
+local function getApi(cfg)
+	local rawApi = getRawApi(cfg)
 	local api = {}
 	for name, desc in pairs(apinames) do
 		local module, method = desc[1], desc[2]
