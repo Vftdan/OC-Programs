@@ -125,6 +125,7 @@ local function checkStateVersion()
 	local lastVersion = infra.getStateVersion()
 	if validForVersion ~= lastVersion then
 		storageNodeSet, outgoing, ingoing = build()
+		validForVersion = lastVersion
 	end
 end
 
