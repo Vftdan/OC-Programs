@@ -1,3 +1,7 @@
+local reskinds = require "recipesched.reskinds"
+
+local kindDescrs = reskinds.descrs
+
 local function apiDeliver(api, destination, order)
 	local items = require "recipesched.items"
 	local recipes = require "recipesched.recipes"
@@ -24,6 +28,10 @@ local function apiDeliver(api, destination, order)
 	api.deliver(destination, apiOrder)
 end
 
+local supportedKinds = {
+	[kindDescrs.minecraft.item] = true,
+}
+
 return require("recipesched.basehostdriver").create({
 	features = {delivery = true},
 }, function(hostName)
@@ -37,5 +45,6 @@ return require("recipesched.basehostdriver").create({
 
 	return {
 		deliver = deliver,
+		deliveryKinds = supportedKinds,
 	}
 end)

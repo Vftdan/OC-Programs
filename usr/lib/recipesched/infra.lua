@@ -1,7 +1,9 @@
 local configloader = require "recipesched.configloader"
 local lazytable = require "recipesched.lazytable"
 local util = require "recipesched.util"
+local reskinds = require "recipesched.reskinds"
 
+local KIND_ITEM = reskinds.descrs.minecraft.item
 local defaultStorageName = nil
 local stateVersion = 0
 local nodeRegistry = {}
@@ -124,7 +126,7 @@ local loadImports = {
 			error("Non-string `output` field")
 		end
 		outDescr.autoOut = {
-			{EMPTY_SPEC, outName or IMPLICIT, 0},
+			{EMPTY_SPEC, outName or IMPLICIT, 0, nil},
 		}
 		return wrapNodeDescr(outDescr)
 	end,
@@ -152,7 +154,7 @@ local loadImports = {
 			error("Non-string `output` field")
 		end
 		outDescr.autoOut = {
-			{EMPTY_SPEC, outName, 0},
+			{EMPTY_SPEC, outName, 0, nil},
 		}
 		return wrapNodeDescr(outDescr)
 	end,
@@ -315,7 +317,9 @@ local function getNodeDriverNames(nodeName)
 	return driverNames
 end
 
-local function stackFollowAutoOut(nodeName, stack)
+local function stackFollowAutoOut(nodeName, stack, opts)
+	opts = opts or {}
+	local kindDescr = reskinds.fromResPair(opts.res) or KIND_ITEM
 	local visited = {}
 	local nextNodeName
 	while true do
@@ -327,7 +331,7 @@ local function stackFollowAutoOut(nodeName, stack)
 			return nodeName
 		end
 		for _, route in ipairs(routes) do
-			if util.matchItemSpec(stack, route[1]) then
+			if kindDescr == (route[4] or kindDescr) and util.matchItemSpec(stack, route[1]) then
 				nextNodeName = route[2]
 				if nextNodeName == nodeName then
 					return nodeName

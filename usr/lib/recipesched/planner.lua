@@ -95,7 +95,7 @@ local function updateIngoingStockListFor(ctx, sinkName)
 		return
 	end
 	local lst = {}
-	for nodeName in storagegraph.iterateIngoingPaths(sinkName) do
+	for nodeName in storagegraph.iterateIngoingPaths(sinkName, nil, {anyRes = true}) do
 		local driver = stockcheck.getNodeDriver(nodeName)
 		if driver then
 			table.insert(lst, nodeName)
@@ -164,19 +164,32 @@ local function makeDeliveryAction(srcName, dstName, itemName, deliverAmount)
 	if srcName == dstName then
 		return act
 	end
-	local pathStacks = {}
-	local specList = items.nameToSpecList(itemName)
-	for _, spec in ipairs(specList) do
-		spec.size = deliverAmount
-		table.insert(pathStacks, spec)
+	local kindPaths = {}
+	local kindList = items.nameToKindList(itemName)
+	for _, kindDescr in ipairs(kindList) do
+		local pathStacks = {}
+		local specList = items.nameToSpecList(itemName, {res = kindDescr:getResPair()})
+		for _, spec in ipairs(specList) do
+			kindDescr:setAmount(spec, deliverAmount)
+			table.insert(pathStacks, spec)
+		end
+		local _, path = storagegraph.findIngoingPath({[srcName] = true}, dstName, pathStacks, {res = kindDescr:getResPair()})
+		if not path then
+			return nil
+		end
+		if #path > 0 then
+			if next(kindPaths) then
+				-- This is only reachable if we implement oredict-like feature and the configuration defines a mixed-kind oredict
+				error(("More than one resource kind path from %q to %q for item %q"):format(srcName, dstName, itemName))
+			end
+			kindPaths[kindDescr] = path
+		end
 	end
-	local _, path = storagegraph.findIngoingPath({[srcName] = true}, dstName, pathStacks)
-	if not path then
-		return nil
-	end
-	for _, edge in ipairs(path) do
-		if not edge.auto then
-			table.insert(steps, {"deliver", edge.from, edge.to, itemName, deliverAmount})
+	for _, path in pairs(kindPaths) do
+		for _, edge in ipairs(path) do
+			if not edge.auto then
+				table.insert(steps, {"deliver", edge.from, edge.to, itemName, deliverAmount})
+			end
 		end
 	end
 	nodesInputs[srcName] = {[itemName] = deliverAmount}

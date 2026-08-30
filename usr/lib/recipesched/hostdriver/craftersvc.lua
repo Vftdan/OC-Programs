@@ -1,3 +1,7 @@
+local reskinds = require "recipesched.reskinds"
+
+local kindDescrs = reskinds.descrs
+
 -- For debug
 local OFFLINE = false
 
@@ -77,6 +81,10 @@ local function apiCraft(api, grid, amount)
 	api.craftGrid(apiGrid, amount)
 end
 
+local supportedKinds = {
+	[kindDescrs.minecraft.item] = true,
+}
+
 return require("recipesched.basehostdriver").create({
 	features = {craft = true, stockCount = true},
 }, function(hostName)
@@ -110,6 +118,7 @@ return require("recipesched.basehostdriver").create({
 
 	return {
 		countPresentItems = countPresentItems,
+		stockCountKinds = supportedKinds,
 		craft = craft,
 	}
 end)

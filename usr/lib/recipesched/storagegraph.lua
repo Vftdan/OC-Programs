@@ -1,12 +1,28 @@
 local lazytable = require "recipesched.lazytable"
 local infra = require "recipesched.infra"
+local reskinds = require "recipesched.reskinds"
 local drivers = require "recipesched.drivers"
 local util = require "recipesched.util"
 local stablepqueue = require "recipesched.stablepqueue"
 
+local KIND_ITEM = reskinds.descrs.minecraft.item
+local ANY_KIND = lazytable.symbol("ANY_KIND")
 local STORAGE_FEATURES = {}
 local WAIT_AUTO_FEATURES = {"stockCount"}
 local EMPTY_SPEC = {}
+
+local function kindsEqual(lhs, rhs)
+	if lhs == rhs then
+		return true
+	end
+	if lhs == ANY_KIND then
+		return true
+	end
+	if rhs == ANY_KIND then
+		return true
+	end
+	return false
+end
 
 local function getDriverNames(node, unsorted)
 	local driverNames = {}
@@ -71,6 +87,7 @@ local function build()
 				auto = true,
 				cost = route[3] or 10,
 				filter = route[1],
+				kindFilter = route[4] or ANY_KIND,
 			})
 		end
 	end
@@ -87,6 +104,7 @@ local function build()
 					auto = false,
 					cost = inNodeValue.inputCost or 10,
 					filter = EMPTY_SPEC,
+					kindFilter = ANY_KIND,
 				})
 			end
 		end
@@ -142,8 +160,13 @@ local function cons(edge, tail)
 	return path
 end
 
-local function edgeMatchesAny(edge, stacks)
+local function edgeMatchesAny(edge, stacks, kindDescr)
 	local filter = edge.filter
+	if edge.kindFilter then
+		if not kindsEqual(edge.kindFilter, kindDescr) then
+			return false
+		end
+	end
 	if next(filter) == nil then
 		-- Special case: empty filter matches an item stack event from an empty collection
 		return true
@@ -156,8 +179,13 @@ local function edgeMatchesAny(edge, stacks)
 	return false
 end
 
-local function edgeMatchesAll(edge, stacks)
+local function edgeMatchesAll(edge, stacks, kindDescr)
 	local filter = edge.filter
+	if edge.kindFilter then
+		if not kindsEqual(edge.kindFilter, kindDescr) then
+			return false
+		end
+	end
 	for _, item in ipairs(stacks) do
 		if not util.matchItemSpec(item, filter) then
 			return false
@@ -166,7 +194,7 @@ local function edgeMatchesAll(edge, stacks)
 	return true
 end
 
-local function areInterceptedBefore(edge, stacks)
+local function areInterceptedBefore(edge, stacks, kindDescr)
 	local sourceName = edge.from
 	local adjEdges = outgoing[sourceName]
 	if not adjEdges then
@@ -178,11 +206,11 @@ local function areInterceptedBefore(edge, stacks)
 		end
 		if sibling.auto then
 			if not edge.auto and sibling.to == STOP_AUTO then
-				if edgeMatchesAll(sibling, stacks) then
+				if edgeMatchesAll(sibling, stacks, kindDescr) then
 					return false
 				end
 			else
-				if edgeMatchesAny(sibling, stacks) then
+				if edgeMatchesAny(sibling, stacks, kindDescr) then
 					return true
 				end
 			end
@@ -191,7 +219,12 @@ local function areInterceptedBefore(edge, stacks)
 	return false  -- Should we throw an error?
 end
 
-local function iterateIngoingPaths(nodeName, stacks)
+local function iterateIngoingPaths(nodeName, stacks, opts)
+	opts = opts or {}
+	local kindDescr = reskinds.fromResPair(opts.res) or KIND_ITEM
+	if opts.anyRes then
+		kindDescr = ANY_KIND
+	end
 	checkStateVersion()
 	local version = validForVersion
 	stacks = stacks or {}
@@ -219,7 +252,7 @@ local function iterateIngoingPaths(nodeName, stacks)
 		local nextEdges = ingoing[pivot]
 		if nextEdges then
 			for _, inEdge in ipairs(nextEdges) do
-				if (inEdge.waitable or not expectWaitable) and edgeMatchesAll(inEdge, stacks) and not areInterceptedBefore(inEdge, stacks) then
+				if (inEdge.waitable or not expectWaitable) and edgeMatchesAll(inEdge, stacks, kindDescr) and not areInterceptedBefore(inEdge, stacks, kindDescr) then
 					queue:put(cost + inEdge.cost, {inEdge.from, cons(inEdge, path), not inEdge.auto})
 				end
 			end
@@ -228,8 +261,8 @@ local function iterateIngoingPaths(nodeName, stacks)
 	end
 end
 
-local function findIngoingPath(srcSet, nodeName, stacks)
-	for srcName, path in iterateIngoingPaths(nodeName, stacks) do
+local function findIngoingPath(srcSet, nodeName, stacks, opts)
+	for srcName, path in iterateIngoingPaths(nodeName, stacks, opts) do
 		if srcSet[srcName] then
 			return srcName, path
 		end

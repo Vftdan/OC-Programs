@@ -1,9 +1,11 @@
 local hasLz16, lz16 = pcall(require, "liblz16")
 local serial = require "serialization"
-local util = require "recipesched.util"
+local reskinds = require "recipesched.reskinds"
 local os = require "os"
 local buffer = require "buffer"
 local minitel = require "minitel"
+
+local kindDescrs = reskinds.descrs
 
 --[[
 -- Criteria is a table with string keys and primitive (i. e. non-reference typed) values
@@ -123,6 +125,10 @@ local function apiDeliver(api, destination, order)
 	end
 end
 
+local supportedKinds = {
+	[kindDescrs.minecraft.item] = true,
+}
+
 return require("recipesched.basehostdriver").create({
 	features = {delivery = true},
 	fallbackFeatures = {stockCount = true},
@@ -150,6 +156,8 @@ return require("recipesched.basehostdriver").create({
 
 	return {
 		deliver = deliver,
+		deliveryKinds = supportedKinds,
 		countPresentItems = countPresentItems,
+		stockCountKinds = supportedKinds,
 	}
 end)

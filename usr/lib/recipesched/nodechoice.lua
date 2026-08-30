@@ -25,14 +25,18 @@ end
 
 local function followPossibleItemOutputs(startNodeName, itemName, amount)
 	local stableSet = {}
-	local specList = items.nameToSpecList(itemName)
-	for _, spec in ipairs(specList) do
-		spec.size = amount
-		local stableNodeName, msg = infra.stackFollowAutoOut(startNodeName, spec)
-		if stableNodeName == nil then
-			return nil, msg
+	local kindList = items.nameToKindList(itemName)
+	for _, kindDescr in ipairs(kindList) do
+		local res = kindDescr:getResPair()
+		local specList = items.nameToSpecList(itemName, {res = res})
+		for _, spec in ipairs(specList) do
+			kindDescr:setAmount(spec, amount)
+			local stableNodeName, msg = infra.stackFollowAutoOut(startNodeName, spec, {res = res})
+			if stableNodeName == nil then
+				return nil, msg
+			end
+			stableSet[stableNodeName] = true
 		end
-		stableSet[stableNodeName] = true
 	end
 	local stableList = {}
 	for k in pairs(stableSet) do
@@ -53,9 +57,10 @@ local function chooseUncached(defaultNodeName, recipeName, desc)
 	}
 	local destNodeName = desc.nodeName
 	local reqFeatureList = desc.driverFeatures
-	local outStartNodeName
+	local kindOutStartNodeName = {}
+	local defaultOutStartNodeName = nil
 	if destNodeName then
-		outStartNodeName = destNodeName
+		defaultOutStartNodeName = destNodeName
 		local destNode = infra.nodeRegistry[destNodeName]
 		if not destNode then
 			error(("Recipe %q bound to a non-existent node %q"):format(recipeName, destNodeName))
@@ -76,47 +81,70 @@ local function chooseUncached(defaultNodeName, recipeName, desc)
 		if not storagegraph.isStorageNode(defaultNodeName) then
 			error(("Default node %q is not a storage node"):format(defaultNodeName))
 		end
-		local stacks = {}
+		local kindStacks = {}
 		for _, resultEntry in ipairs(desc.results) do
 			local itemName = recipes.getRecipeItemName(resultEntry.item)
 			if not itemName then
 				error(("Not an item: %q"):format(resultEntry.item))
 			end
-			local specList = items.nameToSpecList(itemName)
-			for _, spec in ipairs(specList) do
-				spec.size = resultEntry.amount  -- Warning: we only set the value for a single recipe invocation
-				table.insert(stacks, spec)
-			end
-		end
-		local foundStoNodeName = nil
-		local stoNode
-		local driverNames
-		for stoNodeName in storagegraph.iterateIngoingPaths(defaultNodeName, stacks) do
-			stoNode = infra.nodeRegistry[stoNodeName]
-			if not stoNode then
-				error(("Iterating through a non-existent node %q"):format(stoNodeName))
-			end
-			driverNames = {}
-			for driverName, serverList in pairs(stoNode.servedDrivers) do
-				if #serverList > 0 then
-					table.insert(driverNames, driverName)
+			local kindList = items.nameToKindList(itemName)
+			for _, kindDescr in ipairs(kindList) do
+				local stacks = kindStacks[kindDescr]
+				if not stacks then
+					stacks = {}
+					kindStacks[kindDescr] = stacks
+				end
+				local res = kindDescr:getResPair()
+				local specList = items.nameToSpecList(itemName, {res = res})
+				for _, spec in ipairs(specList) do
+					kindDescr:setAmount(spec, resultEntry.amount)  -- Warning: we only set the value for a single recipe invocation
+					table.insert(stacks, spec)
 				end
 			end
-			if drivers.togetherHaveAllFeatures(reqFeatureList, driverNames) then
-				foundStoNodeName = stoNodeName
-				break
+		end
+		local kindStoNodeNames = {}
+		for kindDescr, stacks in pairs(kindStacks) do
+			local foundStoNodeName = nil
+			local stoNode
+			local driverNames
+			for stoNodeName in storagegraph.iterateIngoingPaths(defaultNodeName, stacks, {res = kindDescr:getResPair()}) do
+				stoNode = infra.nodeRegistry[stoNodeName]
+				if not stoNode then
+					error(("Iterating through a non-existent node %q"):format(stoNodeName))
+				end
+				driverNames = {}
+				for driverName, serverList in pairs(stoNode.servedDrivers) do
+					if #serverList > 0 then
+						table.insert(driverNames, driverName)
+					end
+				end
+				if drivers.togetherHaveAllFeatures(reqFeatureList, driverNames) then
+					foundStoNodeName = stoNodeName
+					break
+				end
+			end
+			if not foundStoNodeName then
+				error(("No reachable node implementing all features for the recipe %q for resource kind %s"):format(recipeName, tostring(kindDescr)))
+			end
+			result.storageNodeName = foundStoNodeName
+			kindStoNodeNames[kindDescr] = foundStoNodeName
+			kindOutStartNodeName[kindDescr] = foundStoNodeName
+			table.sort(driverNames)
+			for _, feature in ipairs(reqFeatureList) do
+				local driverName = assert(drivers.getDriverNamesWithFeature(feature, driverNames)[1])
+				local srvDescr = assert(stoNode.servedDrivers[driverName][1])
+				driverFeatureServers[feature] = srvDescr
 			end
 		end
-		if not foundStoNodeName then
-			error(("No reachable node implementing all features for the recipe %q"):format(recipeName))
+		local anyKindDescr = next(kindStoNodeNames)
+		if not anyKindDescr then
+			error(("No output resource kinds for recipe %q"):format(recipeName))
 		end
-		result.storageNodeName = foundStoNodeName
-		outStartNodeName = foundStoNodeName
-		table.sort(driverNames)
-		for _, feature in ipairs(reqFeatureList) do
-			local driverName = assert(drivers.getDriverNamesWithFeature(feature, driverNames)[1])
-			local srvDescr = assert(stoNode.servedDrivers[driverName][1])
-			driverFeatureServers[feature] = srvDescr
+		local anyStoNodeName = kindStoNodeNames[anyKindDescr]
+		for _, nodeName in pairs(kindStoNodeNames) do
+			if nodeName ~= anyStoNodeName then
+				error(("Output resource kind-dependent nodes %q, %q for recipe %q (TODO)"):format(nodeName, anyStoNodeName, recipeName))
+			end
 		end
 	end
 
@@ -133,16 +161,24 @@ local function chooseUncached(defaultNodeName, recipeName, desc)
 		local bad = false
 		local badMsg
 		local stableSet = {}
-		local specList = items.nameToSpecList(itemName)
-		for _, spec in ipairs(specList) do
-			spec.size = outputEntry.amount  -- Warning: we only set the value for a single recipe invocation
-			local stableNodeName, msg = infra.stackFollowAutoOut(outStartNodeName, spec)
-			if stableNodeName == nil then
-				bad = true
-				badMsg = msg
-				break
+		local kindList = items.nameToKindList(itemName)
+		for _, kindDescr in ipairs(kindList) do
+			local outStartNodeName = kindOutStartNodeName[kindDescr] or defaultOutStartNodeName
+			if not outStartNodeName then
+				error(("BUG: No output node for the recipe %q for resource kind %s"):format(recipeName, tostring(kindDescr)))
 			end
-			stableSet[stableNodeName] = true
+			local res = kindDescr:getResPair()
+			local specList = items.nameToSpecList(itemName, {res = res})
+			for _, spec in ipairs(specList) do
+				kindDescr:setAmount(spec, outputEntry.amount)  -- Warning: we only set the value for a single recipe invocation
+				local stableNodeName, msg = infra.stackFollowAutoOut(outStartNodeName, spec, {res = res})
+				if stableNodeName == nil then
+					bad = true
+					badMsg = msg
+					break
+				end
+				stableSet[stableNodeName] = true
+			end
 		end
 		if bad then
 			outputEntry.bad = true

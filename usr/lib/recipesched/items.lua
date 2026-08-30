@@ -1,30 +1,38 @@
 local configloader = require "recipesched.configloader"
 local lazytable = require "recipesched.lazytable"
+local reskinds = require "recipesched.reskinds"
+
+local KIND_ITEM = reskinds.symbols.minecraft.item
+local KIND_FLUID = reskinds.symbols.forge.fluid
 
 local registry = {}
 
-local modGetter = lazytable.create(function(ns)
-	return lazytable.create(function(name)
-		return function(fields)
-			fields = fields or {}
-			return {
-				kind = "stack",
-				value = {
-					name = ns .. ":" .. name,
-					damage = fields.damage,
-					maxSize = fields.maxSize,
-					label = fields.label,
-				},
-			}
-		end
-	end, {frozen = true, weak = true, toString = function() return ("mod[%q]"):format(ns) end})
+local modGetter
+modGetter = lazytable.create(function(resKind)
+	if type(resKind) ~= "table" then
+		return modGetter[KIND_ITEM][resKind]
+	end
+	local kindDescr = reskinds.symbolToDescr[resKind]
+	if not kindDescr then
+		error("`mod` key: expected kind.*.*")
+	end
+	return lazytable.create(function (ns)
+		return lazytable.create(function(name)
+			return resKind[ns .. ":" .. name]
+		end, {frozen = true, weak = true, toString = function() return ("mod[%s][%q]"):format(tostring(resKind), ns) end})
+	end, {frozen = true, weak = true, toString = function() return ("mod[%s]"):format(tostring(resKind)) end})
 end, {frozen = true, weak = true, toString = function() return "mod" end})
 
 local loadImports = {
 	mod = modGetter,
+	mod_fluid = modGetter[KIND_FLUID],
+	kind = reskinds.symbols,
 }
 
 local function processItem(tbl)
+	if tbl and reskinds.symbolToDescr[tbl] then
+		tbl = tbl[""]
+	end
 	if type(tbl) == "function" then
 		tbl = tbl()
 	end
@@ -36,56 +44,23 @@ local function processItem(tbl)
 		return false, ".kind: string expected, got " .. type(kind)
 	end
 	if kind == "stack" then
-		--[[ Transposer stack fields:
-		-- name: string
-		-- label: string
-		-- damage: number
-		-- maxDamage: number
-		-- size: number
-		-- maxSize: number
-		-- hasTag: boolean
-		-- with Thaumic Computers: aspects: nil | table<string, number>
-		-- with Forestry integration: individual: nil | table{
-		--     displayName: string (only species word)
-		--     type: string ("bee", ...)
-		--     maxHealth: number
-		--     canSpawn: boolean
-		--     isAlive: boolean
-		--     isAnalyzed: boolean
-		--     isSecret: boolean
-		--     generation: number
-		--     health: number
-		--     isNatural: boolean
-		--     hasEffect: boolean
-		--     ident: string (species)
-		--     active: .isAnalyzed ? table<string, string | number | boolean> : nil
-		--     inactive: .isAnalyzed ? table<string, string | number | boolean> : nil
-		-- }
-		--]]
-		local stack = tbl.value
-		if type(stack) ~= "table" then
-			return false, ".value: table expected, got " .. type(stack)
+		local resource = tbl.res
+		if type(resource) ~= "table" then
+			return false, ".res: table expected, got " .. type(resource)
 		end
-		local name = stack.name
-		if type(name) ~= "string" then
-			return false, ".value.name: string expected, got " .. type(name)
+		local resNs, resKind = resource.ns, resource.kind
+		if type(resNs) ~= "string" then
+			return false, ".res.ns: string expected, got " .. type(resNs)
 		end
-		local damage = stack.damage
-		if damage ~= nil and type(damage) ~= "number" then
-			return false, ".value.damage: number or nil expected, got " .. type(damage)
+		if type(resKind) ~= "string" then
+			return false, ".res.kind: string expected, got " .. type(resKind)
 		end
-		local maxSize = stack.maxSize
-		if maxSize == nil then
-			maxSize = 64
+		local kindDescr = reskinds.descrs[resNs][resKind]
+		local ok, value = kindDescr:finalizeValue(tbl.value)
+		if not ok then
+			return false, ".value" .. value
 		end
-		if type(maxSize) ~= "number" then
-			return false, ".value.maxSize: number or nil expected, got " .. type(maxSize)
-		end
-		local label = stack.label
-		if label ~= nil and type(label) ~= "string" then
-			return false, ".value.label: string expected, got " .. type(label)
-		end
-		return true, {kind = "stack", value = {name = name, damage = damage, maxSize = maxSize, label = label}}
+		return true, {kind = "stack", res = {ns = resNs, kind = resKind}, value = value}
 	else
 		-- TODO alternative kind
 		return false, (".kind: unknown value %q"):format(kind)
@@ -114,32 +89,64 @@ local function reload()
 	return true
 end
 
-local function populateStacks(stackArray, node)
+local function populateStacks(stackArray, node, kindDescr)
 	if node.kind == "stack" then
-		table.insert(stackArray, node.value)
+		if kindDescr:matches(node) then
+			table.insert(stackArray, node.value)
+		end
 	end
 end
 
-local function lookupStacks(name)
+local function populateKinds(kindSet, node)
+	if node.kind == "stack" then
+		kindSet[reskinds.descrs[node.res.ns][node.res.kind]] = true
+	end
+end
+
+local function lookupStacks(name, kindDescr)
 	local entry = registry[name]
 	if not entry then
 		return nil
 	end
 	local result = {}
-	populateStacks(result, entry)
+	populateStacks(result, entry, kindDescr)
 	return result
 end
 
-local function nameToSpecList(name)
+local function lookupKinds(name)
+	local entry = registry[name]
+	if not entry then
+		return nil
+	end
+	local result = {}
+	populateKinds(result, entry)
+	return result
+end
+
+local function nameToSpecList(name, opts)
+	opts = opts or {}
+	local kindDescr = reskinds.fromResPair(opts.res) or reskinds.symbolToDescr[KIND_ITEM]
 	local specList = {}
-	local stacks = lookupStacks(name)
+	local stacks = lookupStacks(name, kindDescr)
 	if not stacks then
 		error(("Unknown item %q"):format(name))
 	end
 	for _, stack in ipairs(stacks) do
-		table.insert(specList, {name = stack.name, damage = stack.damage, maxSize = stack.maxSize, label = stack.label})
+		table.insert(specList, kindDescr:getSpecifiers(stack))
 	end
 	return specList, stacks
+end
+
+local function nameToKindList(name)
+	local kindSet = lookupKinds(name)
+	if not kindSet then
+		error(("Unknown item %q"):format(name))
+	end
+	local kindList = {}
+	for kindDescr in pairs(kindSet) do
+		table.insert(kindList, kindDescr)
+	end
+	return kindList
 end
 
 -- Network API wrappers
@@ -159,8 +166,8 @@ end
 return {
 	registry = registry,
 	reload = reload,
-	lookupStacks = lookupStacks,
 	nameToSpecList = nameToSpecList,
+	nameToKindList = nameToKindList,
 	getRegistryElement = getRegistryElement,
 	getRegistryKeys = getRegistryKeys,
 }
