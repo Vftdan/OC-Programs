@@ -8,20 +8,7 @@ local fromResults = lazytable.create(function() return {} end, {iterable = true}
 
 local EMPTY_SLOT = lazytable.create(function() end, {frozen = true, toString = function() return "empty" end})
 
-local itemRefs = setmetatable({}, {__mode = "k"})
-
-local function toStringItemRef(ref)
-	return ("item[%q]"):format(itemRefs[ref])
-end
-
-local itemGetter = lazytable.create(function(regName)
-	if type(regName) ~= "string" then
-		error("Non-string item reference")
-	end
-	local symbol = lazytable.create(function() end, {frozen = true, toString = toStringItemRef})
-	itemRefs[symbol] = regName
-	return symbol
-end, {frozen = true, weak = true, toString = function() return "item" end})
+local itemRefs, itemGetter = lazytable.stringKeyRefs("item")
 
 local function deliveryBaseType(opts)
 	local destination = opts.destination

@@ -60,7 +60,24 @@ local function symbol(name)
 	return create(noop, {frozen = true, toString = function() return name end})
 end
 
+local function stringKeyRefs(baseName)
+	local refs = setmetatable({}, {__mode = "k"})
+	local function toStringRef(ref)
+		return ("%s[%q]"):format(baseName, refs[ref])
+	end
+	local getter = create(function(regName)
+		if type(regName) ~= "string" then
+			error(("Non-string %s reference"):format(baseName))
+		end
+		local symbol = create(noop, {frozen = true, toString = toStringRef})
+		refs[symbol] = regName
+		return symbol
+	end, {frozen = true, weak = true, toString = function() return baseName end})
+	return refs, getter
+end
+
 return {
 	create = create,
 	symbol = symbol,
+	stringKeyRefs = stringKeyRefs,
 }
