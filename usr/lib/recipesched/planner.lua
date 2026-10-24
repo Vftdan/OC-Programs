@@ -9,6 +9,7 @@ local os = require "os"
 local math = require "math"
 
 local FETCH_ALL = false
+local FAIL_EARLY = false
 
 local function makePlanContext(name)
 	return {
@@ -314,59 +315,60 @@ local function stepPlan(ctx)
 	end
 	ctx.ttl = ctx.ttl - 1
 	local updated = false
-	local stepNodeName = next(ctx.nodesNextItems)
-	if not stepNodeName then
-		return false
-	end
-	updateIngoingStockListFor(ctx, stepNodeName)
-	updatePresentCache(ctx)
-	local addedActions = {
-		flows = {},
-	}
-	table.insert(ctx.actionStack, addedActions)
-	local nodesDeltas = {}
-	local deltas = {}
-	nodesDeltas[stepNodeName] = deltas
-	local nextItems = ctx.nodesNextItems[stepNodeName]
-	for itemName, wantAmount in pairs(nextItems) do
-		local negDelta = deltas[itemName]
-		if negDelta and negDelta < 0 then
-			wantAmount = wantAmount + negDelta
-		end
-		local presentCurrent = getPresentAmount(ctx, itemName, stepNodeName)
-		wantAmount = wantAmount - presentCurrent
-		if wantAmount > 0 then
-			for _, precNodeName in ipairs(ctx.ingoingStockLists[stepNodeName]) do
-				if wantAmount <= 0 then
-					break
-				end
-				-- TODO check whether this particular item will not be intercepted on the path
-				local availPrec = getFreePresentAmount(ctx, itemName, precNodeName)
-				if availPrec > 0 then
-					local deliverAmount = math.min(wantAmount, availPrec)
-					local act = makeDeliveryAction(precNodeName, stepNodeName, itemName, deliverAmount)
-					if act then
-						addAction(addedActions, act)
-						updateActionDelta(ctx, nodesDeltas, act)
-						wantAmount = wantAmount - deliverAmount
-						updated = true
+	for stepNodeName in pairs(ctx.nodesNextItems) do
+		updateIngoingStockListFor(ctx, stepNodeName)
+		updatePresentCache(ctx)
+		local addedActions = {
+			flows = {},
+		}
+		table.insert(ctx.actionStack, addedActions)
+		local nodesDeltas = {}
+		local deltas = {}
+		nodesDeltas[stepNodeName] = deltas
+		local nextItems = ctx.nodesNextItems[stepNodeName]
+		for itemName, wantAmount in pairs(nextItems) do
+			local negDelta = deltas[itemName]
+			if negDelta and negDelta < 0 then
+				wantAmount = wantAmount + negDelta
+			end
+			local presentCurrent = getPresentAmount(ctx, itemName, stepNodeName)
+			wantAmount = wantAmount - presentCurrent
+			if wantAmount > 0 then
+				for _, precNodeName in ipairs(ctx.ingoingStockLists[stepNodeName]) do
+					if wantAmount <= 0 then
+						break
+					end
+					-- TODO check whether this particular item will not be intercepted on the path
+					local availPrec = getFreePresentAmount(ctx, itemName, precNodeName)
+					if availPrec > 0 then
+						local deliverAmount = math.min(wantAmount, availPrec)
+						local act = makeDeliveryAction(precNodeName, stepNodeName, itemName, deliverAmount)
+						if act then
+							addAction(addedActions, act)
+							updateActionDelta(ctx, nodesDeltas, act)
+							wantAmount = wantAmount - deliverAmount
+							updated = true
+						end
 					end
 				end
 			end
-		end
-		if wantAmount > 0 then
-			local act = makeRecipeDeliveryAction(ctx, stepNodeName, itemName, wantAmount)
-			if act then
-				addAction(addedActions, act)
-				updateActionDelta(ctx, nodesDeltas, act)
-				updated = true
+			if wantAmount > 0 then
+				local act = makeRecipeDeliveryAction(ctx, stepNodeName, itemName, wantAmount)
+				if act then
+					addAction(addedActions, act)
+					updateActionDelta(ctx, nodesDeltas, act)
+					updated = true
+				end
 			end
 		end
-	end
-	for nodeName, deltas in pairs(nodesDeltas) do
-		for itemName, deltaValue in pairs(deltas) do
-			-- FIXME future stages now can provide resources for past stages
-			wantItemAt(ctx, itemName, deltaValue, nodeName)
+		for nodeName, deltas in pairs(nodesDeltas) do
+			for itemName, deltaValue in pairs(deltas) do
+				-- FIXME future stages now can provide resources for past stages
+				wantItemAt(ctx, itemName, deltaValue, nodeName)
+			end
+		end
+		if updated or FAIL_EARLY then
+			break
 		end
 	end
 	clearNegativeDesires(ctx)  -- is there a reason we were not doing this?
