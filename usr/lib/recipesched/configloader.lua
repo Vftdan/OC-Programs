@@ -2,7 +2,7 @@ local CFG_DIR = "/etc/recipesched/"
 
 local function makeEnv(opts)
 	opts = opts or {}
-	imports = opts.imports or {}
+	local imports = opts.imports or {}
 	local shouldAssign = opts.shouldAssign
 	local mt = {}
 	local env = setmetatable({}, mt)
