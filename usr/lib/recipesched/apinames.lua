@@ -43,4 +43,9 @@ addAllToApi("executor", {
 	"killJob",
 })
 
+addAllToApi("stock", {
+	"reload",
+	"composePlanRequest",
+})
+
 return apinames
