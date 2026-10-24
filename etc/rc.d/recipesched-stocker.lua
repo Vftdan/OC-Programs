@@ -26,7 +26,7 @@ local function trigger()
 		local job = executor.getJobInfo(jobId)
 		if job.finished then
 			if not job.success then
-				error(("Job %q execution failure: %s"):format(jobId, job.reason))
+				error(("Job %q execution failure: %s\n%s"):format(jobId, job.reason, job.stacktrace or ""))
 			end
 			return true
 		end
@@ -40,7 +40,7 @@ function start()
 		lastStatus = "Starting"
 		thr = thread.create(function()
 			while shouldRun do
-				local ok, reason = pcall(trigger)
+				local ok, reason = xpcall(trigger, debug.traceback)
 				if not ok then
 					lastStatus = reason
 				else

@@ -59,7 +59,7 @@ local function runParallel(f, lst, ...)
 	local errorMessage
 	local results = {n = n}
 	local function wrapper(i, ...)
-		local success, value = pcall(f, ...)
+		local success, value = xpcall(f, debug.traceback, ...)
 		if success then
 			results[i] = value
 		else

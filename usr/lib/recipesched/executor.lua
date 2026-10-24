@@ -185,10 +185,12 @@ local function executorEntry(ctx)
 				job.executor = ctx
 				local stepNum = job.lastStep + 1
 				local stepCb = job.steps[stepNum].callback
-				local ok, reason = pcall(stepCb)
+				local ok, reason = xpcall(stepCb, debug.traceback)
 				job.executor = nil
 				if not ok then
-					job.reason = reason
+					local nlpos = reason:find("\n") or #reason + 1
+					job.reason = reason:sub(1, nlpos - 1)
+					job.stacktrace = reason:sub(nlpos + 1)
 					job.success = false
 					job.active = false
 					job.finished = true
@@ -296,6 +298,7 @@ local function wrapJobInfo(job)
 		finished = job.finished,
 		success = job.success,
 		reason = job.reason,
+		stacktrace = job.stacktrace,
 	}
 	for i, step in ipairs(job.steps) do
 		wrapped.steps[i] = {

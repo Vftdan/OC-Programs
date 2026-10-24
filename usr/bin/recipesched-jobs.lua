@@ -39,6 +39,9 @@ local function printJobInfo(id)
 	print(FMT:format(fmtArgs(id, job)))
 	if job.finished and not job.success then
 		print(job.reason)
+		if job.stacktrace then
+			print(job.stacktrace)
+		end
 	end
 	for i, step in ipairs(job.steps) do
 		print(("%1s %2d %s"):format((i > job.lastStep and " " or "V"), i, step.name))

@@ -43,7 +43,7 @@ local function combinedDriverCounter(driverList)
 		local innerResults = {}
 		local err = nil
 		local function f(driver)
-			local success, reply = pcall(driver.countPresentItems, names)
+			local success, reply = xpcall(driver.countPresentItems, debug.traceback, names)
 			if success then
 				innerResults[driver] = reply
 			else
