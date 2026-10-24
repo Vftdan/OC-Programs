@@ -438,6 +438,34 @@ local function planForItem(itemName, amount, dstNode)
 	return finalizePlan(ctx)
 end
 
+local function planComplex(request)
+	local ctx = makePlanContext(request.name or "Complex request")
+	local toAddPresent = {}
+	for _, target in ipairs(request) do
+		local itemName = target.item
+		local amount = target.amount
+		local dstNode = target.at
+		wantItemAt(ctx, itemName, amount, dstNode)
+		if target.add then
+			updateIngoingStockListFor(ctx, dstNode)
+			table.insert(toAddPresent, target)
+		end
+	end
+	if #toAddPresent > 0 then
+		updatePresentCache(ctx)
+		for _, target in ipairs(toAddPresent) do
+			local itemName = target.item
+			local dstNode = target.at
+			wantItemAt(ctx, itemName, getPresentAmount(ctx, itemName, dstNode), dstNode)
+		end
+	end
+	while stepPlan(ctx) do
+		os.sleep(0.05)
+	end
+	return finalizePlan(ctx)
+end
+
 return {
 	planForItem = planForItem,
+	planComplex = planComplex,
 }

@@ -33,6 +33,7 @@ addAllToApi("infra", {
 
 addAllToApi("planner", {
 	"planForItem",
+	"planComplex",
 })
 
 addAllToApi("executor", {
