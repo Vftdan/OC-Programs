@@ -434,7 +434,15 @@ function scenes.jobInfo(job)
 	while running and job do
 		local entries = {}
 		for i, step in ipairs(job.steps) do
-			table.insert(entries, {index = i, state = i > job.lastStep and " " or "V", name = step.name})
+			local ch = "V"
+			if i > job.lastStep then
+				if step.bg then
+					ch = "&"
+				else
+					ch = " "
+				end
+			end
+			table.insert(entries, {index = i, state = ch, name = step.name})
 		end
 		_, char, key, state = mtmenu.menu(formatEntries(entries, colums.jobInfo, formatters.jobInfo, ("%d/%d Steps (%s)"):format(job.lastStep, #entries, jobStateName(job)), "[H]elp"), state)
 		if char == "h" then

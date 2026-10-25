@@ -44,7 +44,15 @@ local function printJobInfo(id)
 		end
 	end
 	for i, step in ipairs(job.steps) do
-		print(("%1s %2d %s"):format((i > job.lastStep and " " or "V"), i, step.name))
+		local ch = "V"
+		if i > job.lastStep then
+			if step.bg then
+				ch = "&"
+			else
+				ch = " "
+			end
+		end
+		print(("%1s %2d %s"):format(ch, i, step.name))
 	end
 end
 

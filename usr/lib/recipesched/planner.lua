@@ -10,6 +10,7 @@ local math = require "math"
 
 local FETCH_ALL = false
 local FAIL_EARLY = false
+local RETURN_CONCURRENCY_INFO = true
 
 local function makePlanContext(name)
 	return {
@@ -387,17 +388,47 @@ local function finalizePlan(ctx)
 		end
 	end
 	local recipeQueue = {}
+	local concId = 0
 	for i = #ctx.actionStack, 1, -1 do
 		local stage = ctx.actionStack[i]
+		local stageConc = {}
+		local stageRecipes = {}
 		for _, flow in ipairs(stage.flows) do
-			-- TODO consider task parallelization
+			local flowConc = {}
+			local flowRecipes = {}
+			table.insert(stageRecipes, flowRecipes)
 			for _, step in ipairs(flow) do
-				local kind = step[1]
-				if kind == "recipe" then
-					table.insert(recipeQueue, {recipe = step[2], node = step[3], amount = step[4]})
-				elseif kind == "deliver" then
-					table.insert(recipeQueue, {deliver = step[4], from = step[2], to = step[3], amount = step[5]})
+				concId = concId + 1
+				local concInfo = {concId}
+				flowConc[concId] = true
+				if RETURN_CONCURRENCY_INFO then
+					--[[
+						flowConc contains ids of previous steps,
+						stageConc contains ids each being either in flowConc or of a next step (relying on stageRecipes being reversed)
+					--]]
+					for _, futureId in ipairs(stageConc) do
+						if not flowConc[futureId] then
+							table.insert(concInfo, futureId)
+						end
+					end
+					table.insert(stageConc, 1, concId)
 				end
+				local kind = step[1]
+				local queueItem
+				if kind == "recipe" then
+					queueItem = {recipe = step[2], node = step[3], amount = step[4]}
+				elseif kind == "deliver" then
+					queueItem = {deliver = step[4], from = step[2], to = step[3], amount = step[5]}
+				end
+				if queueItem and RETURN_CONCURRENCY_INFO then
+					queueItem.conc = concInfo
+				end
+				table.insert(flowRecipes, queueItem)
+			end
+		end
+		for j = #stageRecipes, 1, -1 do
+			for _, queueItem in ipairs(stageRecipes[j]) do
+				table.insert(recipeQueue, queueItem)
 			end
 		end
 	end

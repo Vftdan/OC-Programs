@@ -4,6 +4,7 @@ local nodechoice = require "recipesched.nodechoice"
 local stockcheck = require "recipesched.stockcheck"
 local recipeCallbacks = require "recipesched.recipe_callbacks"
 local drivers = require "recipesched.drivers"
+local recipemutex = require "recipesched.recipemutex"
 local os = require "os"
 local thread = require "thread"
 local event = require "event"
@@ -17,8 +18,14 @@ local function makeBlockingCallbackRecipe(ctx, recipeName, amount, defaultNodeNa
 	if not ctx.driverFeature then
 		ctx.driverFeature = {}
 	end
+	if not ctx.blockingNodes then
+		ctx.blockingNodes = {}
+	end
 	local choice = nodechoice.chooseNodesForRecipe(recipeName, defaultNodeName)
 	ctx.node = choice.node
+	if choice.node and choice.node.isProcessor and choice.node.isBlocking then
+		table.insert(ctx.blockingNodes, choice.node)
+	end
 	for feature, srvDescr in pairs(choice.driverFeatureServers) do
 		local hostName = srvDescr.host
 		local driverName = srvDescr.driver
@@ -27,7 +34,9 @@ local function makeBlockingCallbackRecipe(ctx, recipeName, amount, defaultNodeNa
 	end
 	if desc.blocking then
 		return function()
+			recipemutex.acquireForContext(ctx)
 			callback(ctx, desc.args, amount)
+			recipemutex.releaseForContext(ctx)
 		end
 	else
 		local countGetter = nil
@@ -45,16 +54,20 @@ local function makeBlockingCallbackRecipe(ctx, recipeName, amount, defaultNodeNa
 		end
 		if not countGetter then
 			return function()
+				recipemutex.acquireForContext(ctx)
 				callback(ctx, desc.args, amount)
+				recipemutex.releaseForContext(ctx)
 			end
 		end
 		return function()
 			local desiredAmount = countGetter() + firstResult.amount * amount
+			recipemutex.acquireForContext(ctx)
 			callback(ctx, desc.args, amount)
 			while countGetter() < desiredAmount do
 				-- TODO add timeout
 				os.sleep(5)
 			end
+			recipemutex.releaseForContext(ctx)
 		end
 	end
 end
@@ -112,6 +125,29 @@ local function makeBlockingCallback(ctx, entry)
 	end
 end
 
+local function assertConcurrencyIdType(id)
+	local t = type(id)
+	if t == "string" or t == "number" then
+		return id
+	end
+	error(("Illegal concurrency id type: %s"):format(t))
+end
+
+local function makeStepConcurrency(entry)
+	local result = {nextList = {}, nextSet = {}}
+	local info = entry.conc
+	if info then
+		result.id = assertConcurrencyIdType(info[1])
+		local nextList, nextSet = result.nextList, result.nextSet
+		for i = 2, #info do
+			local nextId = assertConcurrencyIdType(info[i])
+			table.insert(nextList, nextId)
+			nextSet[nextId] = true
+		end
+	end
+	return result
+end
+
 local function makeJobId()
 	local builder = {}
 	for i = 1, 10 do
@@ -139,17 +175,119 @@ local function registerJobFromPlan(plan)
 	repeat
 		id = makeJobId()
 	until not jobRegistry[id]
-	local job = {id = id, name = plan.name, steps = {}, lastStep = 0, created = false, active = false, finished = false}
+	local concIdToIdx = {}
+	local job = {id = id, name = plan.name, steps = {}, lastStep = 0, created = false, active = false, finished = false, concIdToIdx = concIdToIdx}
 	jobRegistry[id] = job
 	for _, entry in ipairs(plan.recipeQueue) do
-		table.insert(job.steps, {
+		local step = {
 			name = ("%q * %d"):format(entry.recipe, entry.amount),
 			callback = makeBlockingCallback({}, entry),
-		})
+			concurrency = makeStepConcurrency(entry),
+		}
+		table.insert(job.steps, step)
+		local concId = step.concurrency.id
+		if concId then
+			concIdToIdx[concId] = #job.steps
+		end
 	end
 	job.created = true
 	table.insert(jobQueue, id)
 	return id, #jobQueue
+end
+
+local ConcurrencyTracker = {}
+ConcurrencyTracker.__index = ConcurrencyTracker
+
+function ConcurrencyTracker:new()
+	return setmetatable({active = {}, activeIds = {}, finishedIds = {}, foreground = nil, nextIdx = 0}, self)
+end
+
+function ConcurrencyTracker:enterStep(step)
+	self.active[step] = true
+	local id = step.concurrency.id
+	if id then
+		self.activeIds[id] = true
+	end
+end
+
+function ConcurrencyTracker:leaveStep(step)
+	local id = step.concurrency.id
+	if id then
+		self.activeIds[id] = nil
+		self.finishedIds[id] = true
+	end
+	self.active[step] = nil
+	if self.foreground == step then
+		self.foreground = nil
+	end
+end
+
+function ConcurrencyTracker:setForeground(step)
+	self.foreground = step
+	self.nextIdx = 1
+end
+
+function ConcurrencyTracker:isAllowedId(id)
+	for node in pairs(self.active) do
+		if not node.concurrency.nextSet[id] then
+			return false
+		end
+	end
+	return true
+end
+
+function ConcurrencyTracker:findAllowedId()
+	local fg = self.foreground
+	if not fg then
+		return nil
+	end
+	local lst = fg.concurrency.nextList
+	local rewound = false
+	while true do
+		while self.nextIdx > #lst do
+			if rewound then
+				return nil
+			end
+			rewound = true
+			self.nextIdx = 1
+		end
+		local id = lst[self.nextIdx]
+		if not self.activeIds[id] and not self.finishedIds[id] then
+			if self:isAllowedId(id) then
+				return id
+			end
+		end
+		self.nextIdx = self.nextIdx + 1
+	end
+end
+
+function ConcurrencyTracker:banId(id)
+	self.finishedIds[id] = true
+end
+
+local function backgroundStepEntry(step)
+	local stepCb = step.callback
+	step.result = table.pack(xpcall(stepCb, debug.traceback))
+end
+
+local function runBackground(step)
+	if step.bgThread then
+		return
+	end
+	step.bgThread = thread.create(backgroundStepEntry, step)
+end
+
+local function protectedForeground(step)
+	local bgThread = step.bgThread
+	if bgThread then
+		while not bgThread:status() == "dead" do
+			event.pull()
+		end
+		local result = step.result or {false, "dead", n = 2}
+		return table.unpack(result, 1, result.n)
+	end
+	local stepCb = step.callback
+	return xpcall(stepCb, debug.traceback)
 end
 
 local function executorEntry(ctx)
@@ -183,9 +321,32 @@ local function executorEntry(ctx)
 				end
 				job.active = true
 				job.executor = ctx
+				local tracker = job.concurrencyTracker
+				if not tracker then
+					tracker = ConcurrencyTracker:new()
+					job.concurrencyTracker = tracker
+				end
 				local stepNum = job.lastStep + 1
-				local stepCb = job.steps[stepNum].callback
-				local ok, reason = xpcall(stepCb, debug.traceback)
+				local fgStep = job.steps[stepNum]
+				tracker:enterStep(fgStep)
+				tracker:setForeground(fgStep)
+				while true do
+					local bgId = tracker:findAllowedId()
+					if not bgId then
+						break
+					end
+					local idx = job.concIdToIdx[bgId]
+					if not idx or idx > #job.steps then
+						tracker:banId(bgId)
+					else
+						local bgStep = job.steps[idx]
+						tracker:enterStep(bgStep)
+						runBackground(bgStep)
+					end
+				end
+				local ok, reason = protectedForeground(fgStep)
+				-- TODO consider checking for completed background steps
+				tracker:leaveStep(fgStep)
 				job.executor = nil
 				if not ok then
 					local nlpos = reason:find("\n") or #reason + 1
@@ -301,8 +462,10 @@ local function wrapJobInfo(job)
 		stacktrace = job.stacktrace,
 	}
 	for i, step in ipairs(job.steps) do
+		local bgThread = step.bgThread
 		wrapped.steps[i] = {
 			name = step.name,
+			bg = bgThread and bgThread:status() ~= "dead",
 		}
 	end
 	return wrapped

@@ -120,6 +120,11 @@ local loadImports = {
 			error("Not a non-negative `cost` field")
 		end
 		outDescr.inputCost = inputCost or 10  -- TODO
+		local isBlocking = inDescr.blocking or false
+		if type(isBlocking) ~= "boolean" then
+			error("Non-boolean `blocking` field")
+		end
+		outDescr.isBlocking = isBlocking
 		outDescr.localName = localName
 		local outName = inDescr.output
 		if outName ~= nil and type(outName) ~= "string" then
